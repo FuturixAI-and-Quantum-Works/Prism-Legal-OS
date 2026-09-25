@@ -2,7 +2,6 @@ import type { AnthropicLanguageModelOptions } from "@ai-sdk/anthropic";
 import type { GoogleLanguageModelOptions } from "@ai-sdk/google";
 import type { OpenAILanguageModelResponsesOptions } from "@ai-sdk/openai";
 import { dynamicTool, generateText, jsonSchema, stepCountIs, streamText } from "ai";
-import { getAppConfig } from "../../config.js";
 import { assertModelSupports } from "./models.js";
 import { resolveAiModel } from "./providerRegistry.js";
 import type {
@@ -15,6 +14,8 @@ import type {
 
 export * from "./types.js";
 export * from "./models.js";
+
+const AI_REQUEST_TIMEOUT_MS = 60_000;
 
 function preferredConnectionId(
   modelId: string,
@@ -127,7 +128,7 @@ export async function streamChatWithTools(params: StreamChatParams): Promise<Str
     messages: params.messages,
     tools: aiTools(params),
     stopWhen: stepCountIs(params.maxIterations ?? 10),
-    timeout: getAppConfig().ai.requestTimeoutMs,
+    timeout: AI_REQUEST_TIMEOUT_MS,
     abortSignal: params.signal,
     providerOptions: reasoningProviderOptions(params.enableThinking),
     onChunk({ chunk }) {
@@ -171,7 +172,7 @@ export async function completeText(params: {
     system: params.systemPrompt,
     prompt: params.user,
     maxOutputTokens: params.maxTokens ?? 512,
-    timeout: getAppConfig().ai.requestTimeoutMs,
+    timeout: AI_REQUEST_TIMEOUT_MS,
     abortSignal: params.signal,
   });
   return result.text;
@@ -220,7 +221,7 @@ export async function completeTextWithInlineFile(params: {
       },
     ],
     maxOutputTokens: params.maxTokens ?? 2048,
-    timeout: getAppConfig().ai.requestTimeoutMs,
+    timeout: AI_REQUEST_TIMEOUT_MS,
     abortSignal: params.signal,
   });
   return result.text;

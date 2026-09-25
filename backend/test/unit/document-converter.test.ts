@@ -20,7 +20,6 @@ const config: DocumentConverterConfig = {
   timeoutMs: 1_000,
   concurrency: 1,
   maxQueuedPerAdapter: 2,
-  allowChromiumNoSandbox: false,
 };
 
 async function temporaryRoot(): Promise<string> {
@@ -82,7 +81,6 @@ describe("createDocumentConverter", () => {
       },
       async launchChromium(input) {
         launches.push(input.userDataDirectory);
-        expect(input.allowNoSandbox).toBe(false);
         return chromiumBrowser();
       },
     };

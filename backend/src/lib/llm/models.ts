@@ -1,5 +1,4 @@
 import type { AiModelRecord, AiRuntimeContext, AiTask, Provider } from "./types.js";
-import { getAppConfig } from "../../config.js";
 
 export const DEFAULT_MAIN_MODEL = "gemini-3.1-pro-preview";
 export const DEFAULT_TITLE_MODEL = "gemini-3.1-pro-preview";
@@ -143,21 +142,16 @@ export function assertModelSupports(
 export function resolveDefaultMainModel(runtime?: AiRuntimeContext): string {
   const providers = new Set(runtime?.connections.map(({ provider }) => provider));
   const preference = runtime?.preferences?.main;
-  const preferredModelId = preference?.modelId ?? getAppConfig().ai.defaultModel;
-  if (preferredModelId) {
+  if (preference) {
     const model =
-      runtime?.models.find(({ id }) => id === preferredModelId) ??
-      MODEL_REGISTRY.get(preferredModelId);
-    const preferredConnection = preference
-      ? runtime?.connections.find(({ id }) => id === preference.connectionId)
-      : undefined;
-    const connectionAvailable = preference
-      ? Boolean(
-          preferredConnection &&
-          preferredConnection.provider === model?.provider &&
-          (!model?.connectionId || model.connectionId === preferredConnection.id),
-        )
-      : providers.has(model?.provider ?? "google");
+      runtime?.models.find(({ id }) => id === preference.modelId) ??
+      MODEL_REGISTRY.get(preference.modelId);
+    const connection = runtime?.connections.find(({ id }) => id === preference.connectionId);
+    const connectionAvailable = Boolean(
+      connection &&
+      connection.provider === model?.provider &&
+      (!model?.connectionId || model.connectionId === connection.id),
+    );
     if (model?.tasks.includes("main") && connectionAvailable) return model.id;
   }
   if (providers.has("google")) return DEFAULT_MAIN_MODEL;

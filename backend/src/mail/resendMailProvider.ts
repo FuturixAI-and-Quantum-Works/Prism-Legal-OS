@@ -36,7 +36,6 @@ export function createResendTransport(apiKey: string): ResendTransport {
           to: [...message.to],
           cc: message.cc ? [...message.cc] : undefined,
           bcc: message.bcc ? [...message.bcc] : undefined,
-          replyTo: message.replyTo,
           subject: message.subject,
           attachments: message.attachments?.map((attachment) => ({
             filename: attachment.filename,

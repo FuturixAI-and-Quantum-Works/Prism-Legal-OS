@@ -1,4 +1,3 @@
-import { createServer } from "node:http";
 import { describe, expect, it } from "vitest";
 import { decryptCredential, encryptCredential } from "../../src/lib/llm/credentials.js";
 import {
@@ -118,68 +117,24 @@ describe("custom provider network policy", () => {
     };
 
     await expect(
-      validateCustomProviderEndpoint("https://models.example.com/v1", {
-        allowLocalHttp: false,
-        resolveHostname,
-      }),
+      validateCustomProviderEndpoint("https://models.example.com/v1", { resolveHostname }),
     ).resolves.toBe("https://models.example.com/v1");
 
-    const safeFetch = createSafeProviderFetch({
-      allowLocalHttp: false,
-      resolveHostname,
-    });
+    const safeFetch = createSafeProviderFetch({ resolveHostname });
     await expect(safeFetch("https://models.example.com/v1")).rejects.toThrow(
       /prohibited network address/,
     );
     expect(resolution).toBe(2);
   });
 
-  it("resolves and validates every redirect hop", async () => {
-    const server = createServer((_request, response) => {
-      response.writeHead(302, { location: "/next" });
-      response.end();
-    });
-    await new Promise<void>((resolve, reject) => {
-      server.listen(0, "127.0.0.1", resolve);
-      server.once("error", reject);
-    });
-    const address = server.address();
-    if (!address || typeof address === "string") throw new Error("Expected TCP server address");
-    let resolution = 0;
-    const safeFetch = createSafeProviderFetch({
-      allowLocalHttp: true,
-      resolveHostname: async () => {
-        resolution += 1;
-        return resolution === 1 ? ["127.0.0.1"] : ["10.0.0.1"];
-      },
-    });
-
-    try {
-      await expect(safeFetch(`http://localhost:${address.port}/start`)).rejects.toThrow(
-        /must remain local/,
-      );
-      expect(resolution).toBe(2);
-    } finally {
-      await new Promise<void>((resolve, reject) =>
-        server.close((error) => (error ? reject(error) : resolve())),
-      );
-    }
-  });
-
-  it("permits loopback HTTP only when local development opts in", async () => {
+  it("rejects loopback endpoints over HTTP and HTTPS", async () => {
     const resolveHostname = async () => ["127.0.0.1"];
     await expect(
-      validateCustomProviderEndpoint("http://localhost:11434/v1", {
-        allowLocalHttp: false,
-        resolveHostname,
-      }),
-    ).rejects.toThrow(/HTTPS/);
+      validateCustomProviderEndpoint("http://localhost:11434/v1", { resolveHostname }),
+    ).rejects.toThrow("Custom AI provider endpoints must use HTTPS");
     await expect(
-      validateCustomProviderEndpoint("http://localhost:11434/v1", {
-        allowLocalHttp: true,
-        resolveHostname,
-      }),
-    ).resolves.toBe("http://localhost:11434/v1");
+      validateCustomProviderEndpoint("https://localhost:11434/v1", { resolveHostname }),
+    ).rejects.toThrow("Custom AI provider endpoint resolves to a prohibited network address");
   });
 });
 

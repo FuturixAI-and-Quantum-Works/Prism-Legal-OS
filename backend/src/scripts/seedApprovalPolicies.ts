@@ -1,3 +1,4 @@
+import "../loadEnv.js";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { and, eq } from "drizzle-orm";

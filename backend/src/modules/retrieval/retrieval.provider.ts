@@ -1,29 +1,25 @@
 import { createHash } from "node:crypto";
+import { createOpenAI } from "@ai-sdk/openai";
 import { QdrantClient } from "@qdrant/js-client-rest";
+import { embedMany } from "ai";
 import { z } from "zod";
+import type { AppConfig } from "../../config.js";
 import { decodeDocumentContent, DocumentContentError } from "../content/documentContent.js";
 import {
-  DEFAULT_RETRIEVAL_REQUEST_TIMEOUT_MS,
+  OPENAI_EMBEDDING_MODEL,
   QDRANT_BM25_MODEL,
   QDRANT_BM25_VECTOR_NAME,
   QDRANT_CHUNK_CHARS,
   QDRANT_CHUNK_OVERLAP,
-  QDRANT_DENSE_MODEL,
   QDRANT_DENSE_VECTOR_NAME,
   QDRANT_DENSE_VECTOR_SIZE,
   QDRANT_UPSERT_BATCH_SIZE,
   RETRIEVAL_DISABLED_MESSAGE,
+  RETRIEVAL_REQUEST_TIMEOUT_MS,
   RetrievalProviderError,
   normalizeRetrievalError,
-  parseRetrievalConfiguration,
-  type RetrievalConfiguration,
-  type RetrievalProviderInput,
 } from "./retrieval.config.js";
-import type {
-  RetrievalConfigurationStatus,
-  RetrievalScope,
-  RetrievalSearchResult,
-} from "./retrieval.types.js";
+import type { RetrievalScope, RetrievalSearchResult } from "./retrieval.types.js";
 
 export type RetrievalVectorStore = Pick<
   QdrantClient,
@@ -37,29 +33,22 @@ export type RetrievalVectorStore = Pick<
   | "getCollection"
 >;
 
+export type EmbedTexts = (
+  texts: readonly string[],
+  signal: AbortSignal,
+) => Promise<readonly (readonly number[])[]>;
+
 type RetrievalProviderOptions = Readonly<{
-  environment?: string;
   client?: RetrievalVectorStore;
-  fetch?: typeof fetch;
-  requestTimeoutMs?: number;
+  embed?: EmbedTexts;
 }>;
+
+type QdrantRetrievalConfig = Extract<AppConfig["rag"], { kind: "qdrant" }>;
 
 type IngestSource = Readonly<{
-  filename?: string;
+  bytes: Buffer;
+  filename: string;
   mimeType?: string;
-}>;
-
-type IngestResponse = Readonly<{
-  status?: "completed" | "partial" | "failed";
-  total?: number;
-  results?: ReadonlyArray<
-    Readonly<{
-      status?: "success" | "error";
-      document_id?: string;
-      error?: string;
-    }>
-  >;
-  collection?: string;
 }>;
 
 type TextChunk = Readonly<{
@@ -102,17 +91,18 @@ function sanitizeCollectionPart(value: string): string {
 }
 
 function collectionNameFor(scope: RetrievalScope): string {
-  const name = ["prism", sanitizeCollectionPart(scope.type), sanitizeCollectionPart(scope.id)].join(
-    "_",
-  );
+  const name = [
+    "prism_v2",
+    sanitizeCollectionPart(scope.type),
+    sanitizeCollectionPart(scope.id),
+  ].join("_");
   return name.slice(0, 255);
 }
 
-function documentInference(text: string) {
-  return {
-    [QDRANT_DENSE_VECTOR_NAME]: { text, model: QDRANT_DENSE_MODEL },
-    [QDRANT_BM25_VECTOR_NAME]: { text, model: QDRANT_BM25_MODEL },
-  };
+function openAiEmbedder(apiKey: string): EmbedTexts {
+  const model = createOpenAI({ apiKey }).embedding(OPENAI_EMBEDDING_MODEL);
+  return async (texts, abortSignal) =>
+    (await embedMany({ model, values: [...texts], abortSignal })).embeddings;
 }
 
 function pointId(documentId: string, chunkIndex: number): string {
@@ -123,23 +113,6 @@ function pointId(documentId: string, chunkIndex: number): string {
   bytes[8] = (bytes[8]! & 0x3f) | 0x80;
   const hex = bytes.toString("hex");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-}
-
-function filenameFromResponse(response: Response, url: string): string {
-  const disposition = response.headers.get("content-disposition");
-  const encoded = disposition?.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
-  if (encoded) return decodeURIComponent(encoded);
-  const quoted = disposition?.match(/filename="([^"]+)"/i)?.[1];
-  if (quoted) return quoted;
-  const plain = disposition?.match(/filename=([^;]+)/i)?.[1];
-  if (plain) return decodeURIComponent(plain.trim());
-  try {
-    const leaf = new URL(url).pathname.split("/").filter(Boolean).at(-1);
-    if (leaf) return decodeURIComponent(leaf);
-  } catch {
-    return "document";
-  }
-  return "document";
 }
 
 function splitPages(text: string): TextChunk[] {
@@ -208,28 +181,23 @@ function collectionExistsFlag(result: boolean | { exists: boolean }): boolean {
 }
 
 export class RetrievalProviderClient {
-  private readonly configuration: RetrievalConfiguration;
-  private readonly fetcher: typeof fetch;
-  private readonly requestTimeoutMs: number;
   private store: RetrievalVectorStore | null;
+  private embedder: EmbedTexts | null;
 
-  constructor(input: RetrievalProviderInput = {}, options: RetrievalProviderOptions = {}) {
-    this.configuration = parseRetrievalConfiguration(input, options.environment);
-    this.fetcher = options.fetch ?? fetch;
-    this.requestTimeoutMs = options.requestTimeoutMs ?? DEFAULT_RETRIEVAL_REQUEST_TIMEOUT_MS;
+  constructor(
+    private readonly config: AppConfig["rag"] = { kind: "disabled" },
+    options: RetrievalProviderOptions = {},
+  ) {
     this.store = options.client ?? null;
-  }
-
-  get status(): RetrievalConfigurationStatus {
-    return this.configuration.status;
+    this.embedder = options.embed ?? null;
   }
 
   get isConfigured(): boolean {
-    return this.configuration.status === "configured";
+    return this.config.kind === "qdrant";
   }
 
   async health(signal?: AbortSignal): Promise<{ ok: boolean; status?: string; error?: string }> {
-    if (this.configuration.status === "disabled") {
+    if (this.config.kind === "disabled") {
       return { ok: false, status: "disabled", error: RETRIEVAL_DISABLED_MESSAGE };
     }
 
@@ -276,23 +244,10 @@ export class RetrievalProviderClient {
   async ingestDocument(
     collectionName: string,
     documentId: string,
-    url: string,
+    { bytes, filename, mimeType }: IngestSource,
     signal?: AbortSignal,
-    source?: IngestSource,
-  ): Promise<IngestResponse> {
+  ): Promise<void> {
     this.requireConfiguration();
-    const response = await this.fetcher(url, { signal: this.requestSignal(signal) });
-    if (!response.ok) {
-      throw new RetrievalProviderError(
-        normalizeRetrievalError(await response.text(), "RAG ingest", response.status),
-      );
-    }
-
-    const bytes = Buffer.from(await response.arrayBuffer());
-    const filename = source?.filename || filenameFromResponse(response, url);
-    const mimeType =
-      source?.mimeType || response.headers.get("content-type")?.split(";")[0]?.trim() || undefined;
-
     let extracted;
     try {
       extracted = await decodeDocumentContent({
@@ -333,12 +288,20 @@ export class RetrievalProviderClient {
 
     for (let offset = 0; offset < chunks.length; offset += QDRANT_UPSERT_BATCH_SIZE) {
       const batch = chunks.slice(offset, offset + QDRANT_UPSERT_BATCH_SIZE);
+      const embeddings = await this.embed(
+        "RAG embedding",
+        batch.map((chunk) => chunk.text),
+        signal,
+      );
       await this.run("RAG ingest", signal, (client) =>
         client.upsert(collectionName, {
           wait: true,
           points: batch.map((chunk, index) => ({
             id: pointId(documentId, offset + index),
-            vector: documentInference(chunk.text),
+            vector: {
+              [QDRANT_DENSE_VECTOR_NAME]: [...embeddings[index]!],
+              [QDRANT_BM25_VECTOR_NAME]: { text: chunk.text, model: QDRANT_BM25_MODEL },
+            },
             payload: {
               document_id: documentId,
               document_name: filename,
@@ -350,13 +313,6 @@ export class RetrievalProviderClient {
         }),
       );
     }
-
-    return {
-      status: "completed",
-      total: chunks.length,
-      collection: collectionName,
-      results: [{ status: "success", document_id: documentId }],
-    };
   }
 
   async queryCollection(
@@ -366,11 +322,12 @@ export class RetrievalProviderClient {
     signal?: AbortSignal,
   ): Promise<RetrievalSearchResult[]> {
     const prefetchLimit = Math.max(topK * 4, topK);
+    const [embedding] = await this.embed("RAG query embedding", [query], signal);
     const result = await this.run("RAG query", signal, (client) =>
       client.query(collectionName, {
         prefetch: [
           {
-            query: { text: query, model: QDRANT_DENSE_MODEL },
+            query: [...embedding!],
             using: QDRANT_DENSE_VECTOR_NAME,
             limit: prefetchLimit,
           },
@@ -427,8 +384,8 @@ export class RetrievalProviderClient {
     );
   }
 
-  private requireConfiguration(): Extract<RetrievalConfiguration, { status: "configured" }> {
-    if (this.configuration.status === "configured") return this.configuration;
+  private requireConfiguration(): QdrantRetrievalConfig {
+    if (this.config.kind === "qdrant") return this.config;
     throw new RetrievalProviderError({
       summary: RETRIEVAL_DISABLED_MESSAGE,
       code: "rag_disabled",
@@ -444,11 +401,24 @@ export class RetrievalProviderClient {
     if (this.store) return this.store;
     this.store = new QdrantClient({
       url: configuration.url,
-      apiKey: configuration.apiKey || undefined,
-      timeout: this.requestTimeoutMs,
+      apiKey: configuration.apiKey,
+      timeout: RETRIEVAL_REQUEST_TIMEOUT_MS,
       checkCompatibility: false,
     });
     return this.store;
+  }
+
+  private async embed(
+    operation: string,
+    texts: readonly string[],
+    signal: AbortSignal | undefined,
+  ): Promise<readonly (readonly number[])[]> {
+    const configuration = this.requireConfiguration();
+    this.embedder ??= openAiEmbedder(configuration.openaiApiKey);
+    const embed = this.embedder;
+    return this.withRequestSignal(operation, signal, (requestSignal) =>
+      embed(texts, requestSignal),
+    );
   }
 
   private async run<T>(
@@ -457,17 +427,21 @@ export class RetrievalProviderClient {
     work: (client: RetrievalVectorStore) => Promise<T>,
   ): Promise<T> {
     const client = this.client();
-    const requestSignal = this.requestSignal(signal);
+    return this.withRequestSignal(operation, signal, () => work(client));
+  }
+
+  private async withRequestSignal<T>(
+    operation: string,
+    signal: AbortSignal | undefined,
+    work: (requestSignal: AbortSignal) => Promise<T>,
+  ): Promise<T> {
+    const timeout = AbortSignal.timeout(RETRIEVAL_REQUEST_TIMEOUT_MS);
+    const requestSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
     try {
       if (requestSignal.aborted) throw abortError(requestSignal);
-      return await withAbort(requestSignal, work(client));
+      return await withAbort(requestSignal, work(requestSignal));
     } catch (error) {
       throw new RetrievalProviderError(normalizeRetrievalError(error, operation));
     }
-  }
-
-  private requestSignal(signal?: AbortSignal): AbortSignal {
-    const timeout = AbortSignal.timeout(this.requestTimeoutMs);
-    return signal ? AbortSignal.any([signal, timeout]) : timeout;
   }
 }

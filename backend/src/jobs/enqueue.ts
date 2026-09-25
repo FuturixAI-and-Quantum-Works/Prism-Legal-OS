@@ -36,7 +36,7 @@ export type EmailTracking = Readonly<{
 
 export async function enqueueRagIndex(
   input: RetrievalIndexInput,
-  idempotencyKey = `rag-index:${input.sourceType}:${input.sourceId}:${input.versionId}`,
+  idempotencyKey = `rag-index:v2:${input.sourceType}:${input.sourceId}:${input.versionId}`,
 ): Promise<string> {
   return getQueueRepository().enqueueJob({
     kind: "rag.index",

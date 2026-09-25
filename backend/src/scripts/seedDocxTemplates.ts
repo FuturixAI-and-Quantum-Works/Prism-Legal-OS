@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "../loadEnv.js";
 import fs from "fs/promises";
 import path from "path";
 import { pathToFileURL } from "node:url";

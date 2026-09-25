@@ -9,7 +9,6 @@ export type MailMessage = Readonly<{
   to: readonly string[];
   cc?: readonly string[];
   bcc?: readonly string[];
-  replyTo?: string;
   subject: string;
   html?: string;
   text?: string;
@@ -23,7 +22,7 @@ export type MailSendRequest = Readonly<{
 
 export type MailFailure = Readonly<{
   kind: "permanent" | "transient";
-  retryMode: "never" | "provider-idempotent" | "at-least-once";
+  retryMode: "never" | "provider-idempotent";
   message: string;
   code?: string;
 }>;
@@ -35,12 +34,9 @@ export type MailSendResult =
 
 export type MailHealth =
   | Readonly<{ status: "configured"; provider: "resend" }>
-  | Readonly<{ status: "ready"; provider: "smtp" }>
-  | Readonly<{ status: "suppressed"; provider: "console" }>
-  | Readonly<{ status: "unavailable"; provider: "smtp"; error: string }>;
+  | Readonly<{ status: "suppressed"; provider: "console" }>;
 
 export interface MailProvider {
   send(request: MailSendRequest): Promise<MailSendResult>;
   health(): Promise<MailHealth>;
-  close?(): Promise<void>;
 }

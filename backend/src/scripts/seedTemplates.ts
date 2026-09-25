@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "../loadEnv.js";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { db, templates } from "../db/index.js";

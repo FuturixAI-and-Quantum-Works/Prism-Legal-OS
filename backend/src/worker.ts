@@ -45,12 +45,11 @@ async function main(): Promise<void> {
       return result.rows;
     });
     installQueueRepository(repository);
-    const closeMailProvider = configureEmail({
+    configureEmail({
       mail: config.mail,
       trustedActionOrigins: config.auth.trustedOrigins,
     });
-    if (closeMailProvider) lifecycle.register("mail provider", closeMailProvider);
-    configureRetrieval(config.rag, config.runtime.kind);
+    configureRetrieval(config.rag);
     const objectStore = configureStorage(config.storage, config.secrets.downloadSigning);
     lifecycle.register("object storage", closeStorage);
     configureHealthChecks(config.worker.healthCheckUrl);

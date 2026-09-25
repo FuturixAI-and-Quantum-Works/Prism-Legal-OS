@@ -107,7 +107,6 @@ export async function launchChromium(input: ChromiumLaunchInput): Promise<Chromi
     await launch({
       headless: true,
       userDataDir: input.userDataDirectory,
-      args: input.allowNoSandbox ? ["--no-sandbox", "--disable-setuid-sandbox"] : [],
       signal: input.signal,
     }),
   );
@@ -139,7 +138,6 @@ export function createChromiumAdapter(
         const browser = await abortable(
           dependencies.launchChromium({
             userDataDirectory: join(directory, "profile"),
-            allowNoSandbox: config.allowChromiumNoSandbox,
             signal,
           }),
           signal,

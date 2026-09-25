@@ -3,7 +3,6 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { LanguageModel } from "ai";
-import { getAppConfig } from "../../config.js";
 import { MissingLlmApiKeyError } from "./errors.js";
 import { createSafeProviderFetch } from "./safeProviderFetch.js";
 import type { AiModelRecord, AiProviderConnection, AiRuntimeContext } from "./types.js";
@@ -57,9 +56,7 @@ function createLanguageModel(
         name: `custom-${connection.id}`,
         apiKey: connection.credential,
         baseURL: connection.baseUrl,
-        fetch: createSafeProviderFetch({
-          allowLocalHttp: getAppConfig().ai.allowLocalHttpCustomEndpoints,
-        }),
+        fetch: createSafeProviderFetch(),
       });
       return provider(record.providerModelId);
     }
