@@ -45,7 +45,6 @@ async function main(): Promise<void> {
     );
     const { createProductionDependencies } = await import("./productionDependencies.js");
     const dependencies = createProductionDependencies(config, database.database, documentConverter);
-    if (dependencies.close) lifecycle.register("mail provider", dependencies.close);
     lifecycle.register("object storage", closeStorage);
     const app = createApplication(config, dependencies);
 

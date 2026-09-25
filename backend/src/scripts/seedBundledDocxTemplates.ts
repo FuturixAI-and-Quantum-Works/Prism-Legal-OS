@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "../loadEnv.js";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { withScriptApplication } from "./database.js";

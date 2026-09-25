@@ -1,6 +1,6 @@
 # Configure AI providers
 
-Prism can use Anthropic, Google, OpenAI, and OpenAI-compatible model endpoints. A deployment can expose administrator-managed connections, and each signed-in user can add personal connections.
+Prism can use Anthropic, Google, OpenAI, and OpenAI-compatible model endpoints. A deployment can expose a server OpenAI connection, and each signed-in user can add personal connections.
 
 ## Tutorial: add a personal connection
 
@@ -19,21 +19,15 @@ The connection test makes a small model request with the prompt `Reply with OK.`
 
 ## How-to: add a server connection
 
-Set one or more provider keys in the API and worker environment:
+Set the OpenAI key in the API and worker environment:
 
 ```sh
-ANTHROPIC_API_KEY=replace-with-provider-key
-GOOGLE_GENERATIVE_AI_API_KEY=replace-with-provider-key
 OPENAI_API_KEY=replace-with-provider-key
 ```
 
-Seed the model catalog after the database migration.
+Restart both the API and worker after you change `OPENAI_API_KEY`. The server connection appears as a read-only entry in each user's AI settings. Any authenticated user can select it, so treat the key as a deployment-wide credential.
 
-```sh
-npm run seed:ai-catalog --workspace @prism/backend
-```
-
-Restart both the API and worker after you change provider environment variables. Server connections appear as read-only entries in each user's AI settings. Any authenticated user can select an available server connection, so treat a server key as a deployment-wide credential.
+The same key creates document search embeddings when Qdrant is configured. Anthropic, Google, and OpenAI-compatible providers are available as personal connections only.
 
 ## How-to: add an OpenAI-compatible endpoint
 
@@ -48,15 +42,7 @@ For each model, enter the provider's exact model ID and a display name. Declare 
 
 The capability settings are operator declarations. Prism does not discover them. An incorrect declaration can send unsupported input to a model or expose a model to a task it cannot complete.
 
-Production endpoints must use HTTPS. The URL cannot contain credentials, a query, or a fragment. Prism rejects private, reserved, loopback, and cloud metadata addresses and pins each request to a validated DNS result. Redirects must stay on the configured origin.
-
-For local development only, enable loopback HTTP:
-
-```sh
-AI_ALLOW_LOCAL_HTTP_ENDPOINTS=true
-```
-
-The endpoint must then use `localhost`, `127.0.0.1`, or `::1`. The backend does not allow this exception outside development.
+Endpoints must use HTTPS. The URL cannot contain credentials, a query, or a fragment. Prism rejects private, reserved, loopback, and cloud metadata addresses and pins each request to a validated DNS result. Redirects must stay on the configured origin.
 
 ## How-to: rotate credential encryption keys
 
@@ -88,15 +74,15 @@ The repository currently declares these models:
 - Google: Gemini 3.1 Pro Preview for chat, titles, and tabular work; Gemini 3.1 Flash Lite Preview for titles.
 - OpenAI: GPT 5.5 for chat; GPT 5.4 Mini for chat, titles, and tabular work; GPT 5.4 Nano for titles.
 
-Provider availability and model IDs can change outside Prism. A catalog entry does not guarantee that a provider account can use that model. If a provider rejects a model ID, update the catalog in source and seed it again.
+Provider availability and model IDs can change outside Prism. A catalog entry does not guarantee that a provider account can use that model. If a provider rejects a model ID, update the catalog in source and redeploy. The setup step reseeds the catalog each time it runs.
 
-`DEFAULT_MAIN_MODEL` can select the deployment's preferred chat model. A user's saved preference takes precedence when its connection is available. Without a usable preference, Prism prefers an available Google connection, then Anthropic, then OpenAI, then a custom model.
+A user's saved chat model preference takes precedence when its connection is available. Without a usable preference, Prism prefers an available Google connection, then Anthropic, then OpenAI, then a custom model.
 
-`AI_REQUEST_TIMEOUT_MS` sets the model request timeout. Its default is 60 seconds.
+Model requests time out after 60 seconds.
 
 ## Explanation: connection ownership
 
-A server connection reads its key from process memory. Prism does not store that key in the database, and users cannot edit it in the UI.
+The server connection reads `OPENAI_API_KEY` from process memory. Prism does not store that key in the database, and users cannot edit it in the UI.
 
 A personal connection belongs to one user. Prism stores its encrypted credential, endpoint, enabled state, and custom model records in PostgreSQL. Other users cannot select it.
 

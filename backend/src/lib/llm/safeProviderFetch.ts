@@ -18,25 +18,15 @@ export function isProhibitedProviderAddress(address: string): boolean {
   return ipaddr.process(normalized).range() !== "unicast";
 }
 
-function isLoopbackAddress(address: string): boolean {
-  const normalized = address.toLowerCase().replace(/^\[|\]$/g, "");
-  return ipaddr.isValid(normalized) && ipaddr.process(normalized).range() === "loopback";
-}
-
 async function systemResolve(hostname: string): Promise<readonly string[]> {
   if (isIP(hostname)) return [hostname];
   return (await lookup(hostname, { all: true, verbatim: true })).map(({ address }) => address);
 }
 
-function parseProviderUrl(raw: string, allowLocalHttp: boolean): URL {
+function parseProviderUrl(raw: string): URL {
   const url = new URL(raw);
   const hostname = url.hostname.toLowerCase();
-  const localHostname =
-    hostname === "localhost" ||
-    hostname.endsWith(".localhost") ||
-    hostname === "127.0.0.1" ||
-    hostname === "[::1]";
-  if (url.protocol !== "https:" && !(allowLocalHttp && url.protocol === "http:" && localHostname)) {
+  if (url.protocol !== "https:") {
     throw new Error("Custom AI provider endpoints must use HTTPS");
   }
   if (url.username || url.password) {
@@ -64,44 +54,33 @@ async function normalizeRequestBody(
 
 async function resolveSafeAddresses(
   url: URL,
-  allowLocalHttp: boolean,
   resolveHostname: ResolveHostname,
 ): Promise<readonly string[]> {
   const addresses = await resolveHostname(url.hostname);
   if (addresses.length === 0) throw new Error("Custom AI provider endpoint did not resolve");
-  const localDevelopmentEndpoint = allowLocalHttp && url.protocol === "http:";
-  if (
-    addresses.some((address) => isProhibitedProviderAddress(address) && !localDevelopmentEndpoint)
-  ) {
+  if (addresses.some(isProhibitedProviderAddress)) {
     throw new Error("Custom AI provider endpoint resolves to a prohibited network address");
-  }
-  if (localDevelopmentEndpoint && addresses.some((address) => !isLoopbackAddress(address))) {
-    throw new Error("HTTP custom AI provider endpoints must remain local");
   }
   return addresses;
 }
 
 export async function validateCustomProviderEndpoint(
   raw: string,
-  options: Readonly<{
-    allowLocalHttp: boolean;
-    resolveHostname?: ResolveHostname;
-  }>,
+  options: Readonly<{ resolveHostname?: ResolveHostname }> = {},
 ): Promise<string> {
-  const url = parseProviderUrl(raw, options.allowLocalHttp);
+  const url = parseProviderUrl(raw);
   if (url.search || url.hash) {
     throw new Error("Custom AI provider endpoints must not include a query or fragment");
   }
-  await resolveSafeAddresses(url, options.allowLocalHttp, options.resolveHostname ?? systemResolve);
+  await resolveSafeAddresses(url, options.resolveHostname ?? systemResolve);
   return url.toString().replace(/\/$/, "");
 }
 
 export function createSafeProviderFetch(
   options: Readonly<{
-    allowLocalHttp: boolean;
     resolveHostname?: ResolveHostname;
     maxRedirects?: number;
-  }>,
+  }> = {},
 ): typeof fetch {
   const resolveHostname = options.resolveHostname ?? systemResolve;
   const maxRedirects = options.maxRedirects ?? 4;
@@ -109,12 +88,11 @@ export function createSafeProviderFetch(
   return async (input, init) => {
     let url = parseProviderUrl(
       typeof input === "string" || input instanceof URL ? input.toString() : input.url,
-      options.allowLocalHttp,
     );
     let requestInit = init;
 
     for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount += 1) {
-      const addresses = await resolveSafeAddresses(url, options.allowLocalHttp, resolveHostname);
+      const addresses = await resolveSafeAddresses(url, resolveHostname);
       const pinnedAddress = addresses[0];
       const dispatcher = new Agent({
         connect: {
@@ -151,10 +129,7 @@ export function createSafeProviderFetch(
             if (redirectCount === maxRedirects) {
               throw new Error("Custom AI provider redirected too many times");
             }
-            const redirectedUrl = parseProviderUrl(
-              new URL(location, url).toString(),
-              options.allowLocalHttp,
-            );
+            const redirectedUrl = parseProviderUrl(new URL(location, url).toString());
             if (redirectedUrl.origin !== url.origin) {
               throw new Error("Custom AI provider redirects must remain on the configured origin");
             }

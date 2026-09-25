@@ -3,20 +3,21 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import {
-  normalizeRetrievalError,
-  parseRetrievalConfiguration,
-} from "../../src/modules/retrieval/retrieval.config.js";
+import { normalizeRetrievalError } from "../../src/modules/retrieval/retrieval.config.js";
 import {
   RetrievalProviderClient,
+  type EmbedTexts,
   type RetrievalVectorStore,
 } from "../../src/modules/retrieval/retrieval.provider.js";
 
 const testDirectory = dirname(fileURLToPath(import.meta.url));
 const configuredProvider = {
+  kind: "qdrant",
   url: "https://qdrant.example.com",
   apiKey: "test-api-key",
+  openaiApiKey: "test-openai-key",
 } as const;
+const embed: EmbedTexts = async (texts) => texts.map((_text, index) => [index, 1]);
 
 function vectorStore(overrides: Partial<RetrievalVectorStore> = {}): RetrievalVectorStore {
   const unexpected = async (): Promise<never> => {
@@ -36,22 +37,20 @@ function vectorStore(overrides: Partial<RetrievalVectorStore> = {}): RetrievalVe
 }
 
 describe("RAG configuration fail-safe", () => {
-  it("disables RAG without an endpoint and performs zero fetches", async () => {
-    let fetchCount = 0;
+  it("disables RAG without configuration and performs zero provider calls", async () => {
+    let embedCount = 0;
     const service = new RetrievalProviderClient(undefined, {
-      fetch: async () => {
-        fetchCount += 1;
-        return new Response();
+      embed: async (texts) => {
+        embedCount += 1;
+        return embed(texts, new AbortController().signal);
       },
     });
 
-    assert.equal(service.status, "disabled");
     assert.equal(service.isConfigured, false);
-    assert.equal("configuredUrl" in service, false);
     assert.deepEqual(await service.health(), {
       ok: false,
       status: "disabled",
-      error: "RAG is disabled because QDRANT_URL is not configured.",
+      error: "RAG is disabled because QDRANT_URL and OPENAI_API_KEY are not both configured.",
     });
 
     const operations = [
@@ -60,7 +59,10 @@ describe("RAG configuration fail-safe", () => {
         id: "user-1",
         name: "Personal",
       }),
-      service.ingestDocument("collection", "document", "https://signed.example"),
+      service.ingestDocument("collection", "document", {
+        bytes: Buffer.from("text"),
+        filename: "notes.txt",
+      }),
       service.queryCollection("collection", "query"),
       service.deleteDocument("collection", "document"),
       service.collectionStats("collection"),
@@ -70,49 +72,80 @@ describe("RAG configuration fail-safe", () => {
       await assert.rejects(operation, (error: unknown) => {
         assert.equal(
           error instanceof Error ? error.message : "",
-          "RAG is disabled because QDRANT_URL is not configured.",
+          "RAG is disabled because QDRANT_URL and OPENAI_API_KEY are not both configured.",
         );
         return true;
       });
     }
 
-    assert.equal(fetchCount, 0);
+    assert.equal(embedCount, 0);
   });
 
-  it("validates configured endpoints without exposing them", () => {
-    assert.deepEqual(parseRetrievalConfiguration(undefined), { status: "disabled" });
-    assert.throws(
-      () => parseRetrievalConfiguration({ url: "not a URL", apiKey: "test-api-key" }, "production"),
-      /valid absolute URL/,
-    );
-    assert.throws(
-      () =>
-        parseRetrievalConfiguration(
-          { url: "http://qdrant.example.com", apiKey: "test-api-key" },
-          "production",
-        ),
-      /must use HTTPS/,
-    );
-    assert.throws(
-      () =>
-        parseRetrievalConfiguration(
-          { url: "http://qdrant.example.com", apiKey: "test-api-key" },
-          "development",
-        ),
-      /must use HTTPS/,
-    );
-    assert.deepEqual(
-      parseRetrievalConfiguration({ url: "http://localhost:6333/" }, "development"),
-      {
-        status: "configured",
-        url: "http://localhost:6333",
-        apiKey: "",
-      },
-    );
+  it("indexes OpenAI dense vectors with Qdrant BM25 inference in prism_v2 collections", async () => {
+    const created: unknown[] = [];
+    const upserts: unknown[] = [];
+    const service = new RetrievalProviderClient(configuredProvider, {
+      embed,
+      client: vectorStore({
+        collectionExists: async () => ({ exists: false }),
+        createCollection: async (name, body) => {
+          created.push({ name, body });
+          return true;
+        },
+        createPayloadIndex: async () => ({ operation_id: 1, status: "completed" }),
+        delete: async () => ({ operation_id: 2, status: "completed" }),
+        upsert: async (name, body) => {
+          upserts.push({ name, body });
+          return { operation_id: 3, status: "completed" };
+        },
+      }),
+    });
 
-    const service = new RetrievalProviderClient(configuredProvider);
-    assert.equal(service.status, "configured");
-    assert.equal("configuredUrl" in service, false);
+    const collection = await service.createCollection({
+      type: "personal",
+      id: "User-1",
+      name: "Personal",
+    });
+    await service.ingestDocument(collection, "version-1", {
+      bytes: Buffer.from("Indemnity clause text"),
+      filename: "notes.txt",
+      mimeType: "text/plain",
+    });
+
+    assert.equal(collection, "prism_v2_personal_user_1");
+    assert.deepEqual(created, [
+      {
+        name: "prism_v2_personal_user_1",
+        body: {
+          vectors: { dense: { size: 1536, distance: "Cosine" } },
+          sparse_vectors: { bm25: { modifier: "idf" } },
+        },
+      },
+    ]);
+    assert.deepEqual(upserts, [
+      {
+        name: "prism_v2_personal_user_1",
+        body: {
+          wait: true,
+          points: [
+            {
+              id: "79df38da-2697-5fb4-9f6d-aef89d1cf4ee",
+              vector: {
+                dense: [0, 1],
+                bm25: { text: "Indemnity clause text", model: "qdrant/bm25" },
+              },
+              payload: {
+                document_id: "version-1",
+                document_name: "notes.txt",
+                text: "Indemnity clause text",
+                page_number: undefined,
+                mime_type: "text/plain",
+              },
+            },
+          ],
+        },
+      },
+    ]);
   });
 
   it("omits the private endpoint from source health contracts", async () => {
@@ -140,11 +173,16 @@ describe("RAG configuration fail-safe", () => {
 
   it("combines caller cancellation with the request timeout", async () => {
     let queryCount = 0;
+    let queryStarted: () => void = () => undefined;
+    const started = new Promise<void>((resolve) => {
+      queryStarted = resolve;
+    });
     const service = new RetrievalProviderClient(configuredProvider, {
-      requestTimeoutMs: 60_000,
+      embed,
       client: vectorStore({
         query: () => {
           queryCount += 1;
+          queryStarted();
           return new Promise<never>(() => undefined);
         },
       }),
@@ -152,6 +190,7 @@ describe("RAG configuration fail-safe", () => {
     const controller = new AbortController();
 
     const operation = service.queryCollection("collection", "query", 8, controller.signal);
+    await started;
     controller.abort();
     await assert.rejects(operation, (error: unknown) => {
       assert.equal(error instanceof Error ? error.message : "", "RAG query was cancelled.");
@@ -162,6 +201,7 @@ describe("RAG configuration fail-safe", () => {
 
   it("rejects malformed provider result entries", async () => {
     const service = new RetrievalProviderClient(configuredProvider, {
+      embed,
       client: vectorStore({
         query: async () =>
           ({

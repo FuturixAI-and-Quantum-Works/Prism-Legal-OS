@@ -1,5 +1,3 @@
-export type RetrievalConfigurationStatus = "configured" | "disabled";
-
 export type RetrievalScopeType = "personal" | "project" | "workspace";
 export type RetrievalSourceType = "document" | "drive_file";
 export type RetrievalSourceStatus = "pending" | "indexed" | "failed" | "skipped_unsupported";

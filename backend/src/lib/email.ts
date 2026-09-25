@@ -38,7 +38,7 @@ export type SendEmailResult =
       status: "failed";
       error: string;
       failureKind: "permanent" | "transient";
-      retryMode: "never" | "provider-idempotent" | "at-least-once";
+      retryMode: "never" | "provider-idempotent";
       attempts?: number;
       messageId?: never;
       suppressed?: never;
@@ -69,7 +69,6 @@ export type TemplateEmailInput = {
   to: string | string[];
   cc?: string[];
   bcc?: string[];
-  replyTo?: string;
   from?: string;
   attachments?: EmailAttachment[];
   template: EmailTemplateKey | string;
@@ -100,7 +99,6 @@ export type SendRawEmailInput = {
   cc?: string[];
   bcc?: string[];
   from?: string;
-  replyTo?: string;
   subject: string;
   html?: string;
   text?: string;
@@ -113,41 +111,25 @@ type EmailRuntimeConfig = Readonly<{
   trustedActionOrigins: AppConfig["auth"]["trustedOrigins"];
 }>;
 
-export type MailProviderCleanup = () => Promise<void>;
-
 let emailConfig: EmailRuntimeConfig = {
-  mail: {
-    kind: "console",
-    sendTimeoutMs: 10_000,
-  },
+  mail: { kind: "console" },
   trustedActionOrigins: [],
 };
 let mailProvider: MailProvider = new ConsoleMailProvider();
 
-const DEFAULT_EMAIL_DISPLAY_NAME = "Prism Legal";
+const EMAIL_DISPLAY_NAME = "Prism Legal";
 const RESEND_TEST_DOMAIN = "resend.dev";
 
 export function configureEmail(
   config: EmailRuntimeConfig,
   provider: MailProvider = createMailProvider(config.mail),
-): MailProviderCleanup | undefined {
+): void {
   emailConfig = config;
   mailProvider = provider;
-  return provider.close?.bind(provider);
-}
-
-function displayName(): string {
-  return emailConfig.mail.kind === "console"
-    ? DEFAULT_EMAIL_DISPLAY_NAME
-    : emailConfig.mail.displayName;
 }
 
 function resolvedFromEmail(): string | undefined {
   return emailConfig.mail.kind === "console" ? undefined : emailConfig.mail.fromEmail;
-}
-
-function resolvedReplyTo(): string | undefined {
-  return emailConfig.mail.kind === "console" ? undefined : emailConfig.mail.replyTo;
 }
 
 function extractEmailAddress(value: string): string {
@@ -194,17 +176,15 @@ export async function getEmailConfigHealth() {
   return {
     provider: providerHealth.provider,
     status: providerHealth.status,
-    error: providerHealth.status === "unavailable" ? providerHealth.error : null,
     apiKeyConfigured: emailConfig.mail.kind === "resend",
     senderConfigured: fromEmail !== null,
-    emailDisplayName: displayName(),
+    emailDisplayName: EMAIL_DISPLAY_NAME,
     fromEmail,
     senderDomain,
     senders: {
       transactional: fromEmail,
       collaboration: fromEmail,
       security: fromEmail,
-      replyTo: resolvedReplyTo() ?? null,
     },
     usesResendTestDomain: senderDomain === RESEND_TEST_DOMAIN,
     suppressed: providerHealth.status === "suppressed",
@@ -470,7 +450,7 @@ function renderTemplate(
 
 function senderAddress(): string | undefined {
   const fromEmail = resolvedFromEmail();
-  return fromEmail ? `${displayName()} <${fromEmail}>` : undefined;
+  return fromEmail ? `${EMAIL_DISPLAY_NAME} <${fromEmail}>` : undefined;
 }
 
 function facadeResult(result: MailSendResult): SendEmailResult {
@@ -515,7 +495,6 @@ export async function sendRawEmail(input: SendRawEmailInput): Promise<SendEmailR
       cc: normalizeOptionalRecipients(input.cc),
       bcc: normalizeOptionalRecipients(input.bcc),
       subject: input.subject,
-      replyTo: input.replyTo || resolvedReplyTo(),
       html: input.html,
       text: input.text,
       attachments: normalizeAttachments(input.attachments),
@@ -533,7 +512,6 @@ export async function sendTemplateEmail(input: TemplateEmailInput): Promise<Send
       cc: input.cc,
       bcc: input.bcc,
       from: input.from,
-      replyTo: input.replyTo,
       subject: subjectForTemplate(input),
       attachments: input.attachments,
       idempotencyKey: input.idempotencyKey,
@@ -558,7 +536,6 @@ export async function sendTemplateEmail(input: TemplateEmailInput): Promise<Send
     cc: input.cc,
     bcc: input.bcc,
     from: input.from,
-    replyTo: input.replyTo,
     subject: rendered.subject,
     html: rendered.html,
     text: rendered.text,

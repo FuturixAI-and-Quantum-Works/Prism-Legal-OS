@@ -6,7 +6,6 @@ import { parseAppConfig } from "../../src/config.js";
 const baseEnvironment = {
   NODE_ENV: "development",
   DATABASE_URL: "postgresql://prism:secret@localhost:5432/prism",
-  PUBLIC_API_URL: "http://localhost:3001",
   BETTER_AUTH_SECRET: "0123456789abcdef".repeat(4),
   AUTH_OTP_SECRET: "abcdef0123456789".repeat(4),
   AI_CREDENTIAL_ACTIVE_KEY_ID: "v1",
@@ -36,38 +35,26 @@ test("development defaults to explicit console suppression", async () => {
   assert.equal(result.status, "suppressed");
 });
 
+test("a Resend key enables delivery from the Resend onboarding sender by default", async () => {
+  const config = parseAppConfig({ ...baseEnvironment, RESEND_API_KEY: "test-key" });
+  configureEmail({
+    mail: config.mail,
+    trustedActionOrigins: config.auth.trustedOrigins,
+  });
+  const health = await getEmailConfigHealth();
+  assert.equal(health.provider, "resend");
+  assert.equal(health.fromEmail, "onboarding@resend.dev");
+  assert.equal(health.usesResendTestDomain, true);
+});
+
 test("enabled email requires a valid configured sender", () => {
   assert.throws(
     () =>
       parseAppConfig({
         ...baseEnvironment,
-        MAIL_PROVIDER: "resend",
-        RESEND_API_KEY: "test-key",
-      }),
-    /MAIL_FROM/,
-  );
-  assert.throws(
-    () =>
-      parseAppConfig({
-        ...baseEnvironment,
-        MAIL_PROVIDER: "resend",
         RESEND_API_KEY: "test-key",
         MAIL_FROM: "invalid",
       }),
     /email/,
-  );
-});
-
-test("smtp credentials must be configured as a pair", () => {
-  assert.throws(
-    () =>
-      parseAppConfig({
-        ...baseEnvironment,
-        MAIL_PROVIDER: "smtp",
-        MAIL_FROM: "sender@example.com",
-        SMTP_HOST: "smtp.example.com",
-        SMTP_USERNAME: "user",
-      }),
-    /configured together/,
   );
 });

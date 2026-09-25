@@ -54,12 +54,13 @@ const migrationDocumentationContracts = new Map([
     "README.md",
     {
       orderedCommands: [
+        "cp .env.example .env",
+        "docker compose up -d",
         "npm ci",
-        "docker compose up -d postgres mailpit",
-        "npm run db:migrate --workspace @prism/backend",
-        "npm run seed:core --workspace @prism/backend",
-        "npm run seed:templates --workspace @prism/backend",
-        "npm run seed:bundled-docx --workspace @prism/backend",
+        "docker compose up -d postgres qdrant",
+        "cp backend/.env.example backend/.env",
+        "npm run setup --workspace @prism/backend",
+        "npm run dev",
       ],
       requiredStatements: [automaticMigrationStatement],
     },

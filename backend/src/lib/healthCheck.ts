@@ -42,24 +42,20 @@ const SERVICES: ServiceDefinition[] = [
       try {
         const health = await getEmailConfigHealth();
         const responseTimeMs = Date.now() - start;
-        if (health.status === "ready") {
-          return { status: "operational", responseTimeMs };
+        switch (health.status) {
+          case "configured":
+            return {
+              status: "degraded",
+              responseTimeMs,
+              error: "Mail provider is configured but was not probed",
+            };
+          case "suppressed":
+            return { status: "degraded", responseTimeMs, error: "Mail delivery is suppressed" };
+          default: {
+            const unsupported: never = health.status;
+            throw new Error(`Unsupported mail health status: ${String(unsupported)}`);
+          }
         }
-        if (health.status === "configured") {
-          return {
-            status: "degraded",
-            responseTimeMs,
-            error: "Mail provider is configured but was not probed",
-          };
-        }
-        if (health.status === "suppressed") {
-          return { status: "degraded", responseTimeMs, error: "Mail delivery is suppressed" };
-        }
-        return {
-          status: "down",
-          responseTimeMs,
-          error: health.error ?? "Mail provider unavailable",
-        };
       } catch (err) {
         return { status: "down", responseTimeMs: Date.now() - start, error: String(err) };
       }

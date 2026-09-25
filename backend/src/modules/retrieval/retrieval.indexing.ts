@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { enqueueRagIndex } from "../../jobs/enqueue.js";
-import { getSignedUrl } from "../../lib/storage.js";
+import { downloadFile } from "../../lib/storage.js";
 import { normalizeRetrievalError } from "./retrieval.config.js";
 import { retrievalProvider } from "./retrieval.composition.js";
 import {
@@ -46,18 +46,14 @@ export async function indexRetrievalSource(input: RetrievalIndexInput, signal?: 
   if (unsupported || !collection) return entry;
 
   try {
-    const signedUrl = await getSignedUrl(input.storagePath, 3600, input.filename);
-    const result = await retrievalProvider.ingestDocument(
+    const bytes = await downloadFile(input.storagePath);
+    if (!bytes) throw new Error("RAG source file is missing from storage");
+    await retrievalProvider.ingestDocument(
       collection.collectionName,
       input.versionId,
-      signedUrl,
+      { bytes: Buffer.from(bytes), filename: input.filename, mimeType: input.mimeType },
       signal,
-      { filename: input.filename, mimeType: input.mimeType },
     );
-    const failedItem = result.results?.find((row) => row.status === "error");
-    if (result.status === "failed" || failedItem) {
-      throw new Error(failedItem?.error || "RAG ingest failed");
-    }
     return retrievalRepository.markIndexed(entry.id, collection.id);
   } catch (error) {
     const normalized = normalizeRetrievalError(error, "RAG ingest");

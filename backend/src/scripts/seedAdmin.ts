@@ -1,3 +1,4 @@
+import "../loadEnv.js";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { db, userProfiles, users } from "../db/index.js";

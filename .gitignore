@@ -9,6 +9,7 @@ build
 .env.*
 !.env.example
 !.env.local.example
+backend/.secrets.env
 
 *.log
 *.tsbuildinfo

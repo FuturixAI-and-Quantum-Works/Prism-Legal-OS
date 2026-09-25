@@ -46,7 +46,6 @@ export type DocumentConverterConfig = Readonly<{
   timeoutMs: number;
   concurrency: number;
   maxQueuedPerAdapter: number;
-  allowChromiumNoSandbox: boolean;
 }>;
 
 export type LibreOfficeRunInput = Readonly<{
@@ -78,7 +77,6 @@ export type ChromiumBrowser = Readonly<{
 
 export type ChromiumLaunchInput = Readonly<{
   userDataDirectory: string;
-  allowNoSandbox: boolean;
   signal: AbortSignal;
 }>;
 

@@ -1,75 +1,22 @@
 import type { NormalizedRetrievalError } from "./retrieval.types.js";
 
-export const DEFAULT_RETRIEVAL_REQUEST_TIMEOUT_MS = 15_000;
-export const RETRIEVAL_DISABLED_MESSAGE = "RAG is disabled because QDRANT_URL is not configured.";
+export const RETRIEVAL_REQUEST_TIMEOUT_MS = 15_000;
+export const RETRIEVAL_DISABLED_MESSAGE =
+  "RAG is disabled because QDRANT_URL and OPENAI_API_KEY are not both configured.";
 export const QDRANT_DENSE_VECTOR_NAME = "dense";
 export const QDRANT_BM25_VECTOR_NAME = "bm25";
-export const QDRANT_DENSE_MODEL = "sentence-transformers/all-minilm-l6-v2";
+export const OPENAI_EMBEDDING_MODEL = "text-embedding-3-small";
 export const QDRANT_BM25_MODEL = "qdrant/bm25";
-export const QDRANT_DENSE_VECTOR_SIZE = 384;
+export const QDRANT_DENSE_VECTOR_SIZE = 1536;
 export const QDRANT_CHUNK_CHARS = 700;
 export const QDRANT_CHUNK_OVERLAP = 120;
 export const QDRANT_UPSERT_BATCH_SIZE = 32;
-
-export type RetrievalProviderInput = Readonly<{
-  url?: string;
-  apiKey?: string;
-}>;
-
-export type RetrievalConfiguration =
-  | Readonly<{ status: "disabled" }>
-  | Readonly<{ status: "configured"; url: string; apiKey: string }>;
 
 export class RetrievalProviderError extends Error {
   constructor(readonly normalized: NormalizedRetrievalError) {
     super(normalized.summary);
     this.name = "RetrievalProviderError";
   }
-}
-
-function isLocalDevelopmentUrl(url: URL, environment: string | undefined): boolean {
-  return (
-    environment === "development" &&
-    (url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "::1")
-  );
-}
-
-export function parseRetrievalConfiguration(
-  input: RetrievalProviderInput = {},
-  environment = "development",
-): RetrievalConfiguration {
-  const value = input.url?.trim();
-  const apiKey = input.apiKey?.trim() ?? "";
-  if (!value) {
-    if (apiKey) throw new Error("QDRANT_URL and QDRANT_API_KEY must be configured together.");
-    return { status: "disabled" };
-  }
-
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    throw new Error("QDRANT_URL must be a valid absolute URL.");
-  }
-
-  if (url.protocol !== "https:" && !isLocalDevelopmentUrl(url, environment)) {
-    throw new Error("QDRANT_URL must use HTTPS outside local development.");
-  }
-  if (url.username || url.password) {
-    throw new Error("QDRANT_URL must not include credentials.");
-  }
-  if (url.search || url.hash) {
-    throw new Error("QDRANT_URL must not include a query string or fragment.");
-  }
-  if (!apiKey && !isLocalDevelopmentUrl(url, environment)) {
-    throw new Error("QDRANT_API_KEY is required when QDRANT_URL is set.");
-  }
-
-  return {
-    status: "configured",
-    url: url.toString().replace(/\/$/, ""),
-    apiKey,
-  };
 }
 
 function maybeParseJsonObject(raw: string): Record<string, unknown> | null {

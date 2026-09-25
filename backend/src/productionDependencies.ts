@@ -38,12 +38,12 @@ export function createProductionDependencies(
   config: AppConfig,
   database: Database,
   documentConverter: Pick<DocumentConverter, "capabilities" | "convert">,
-): ApplicationDependencies & Readonly<{ close?: () => Promise<void> }> {
-  const closeMailProvider = configureEmail({
+): ApplicationDependencies {
+  configureEmail({
     mail: config.mail,
     trustedActionOrigins: config.auth.trustedOrigins,
   });
-  configureRetrieval(config.rag, config.runtime.kind);
+  configureRetrieval(config.rag);
   const objectStore = configureStorage(config.storage, config.secrets.downloadSigning);
   const auth = createAuth(config, { database, sendOtpEmail });
   const middleware = bindAuthMiddleware({
@@ -95,7 +95,6 @@ export function createProductionDependencies(
         aggregateType: "email_test",
         aggregateId: actorUserId,
       }),
-    ...(closeMailProvider ? { close: closeMailProvider } : {}),
     swagger: {
       serve: swaggerUi.serve,
       setup: swaggerUi.setup(swaggerSpec),

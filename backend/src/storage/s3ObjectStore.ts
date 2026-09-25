@@ -28,6 +28,7 @@ export type S3ObjectStoreDependencies = Readonly<{
 
 export type S3ObjectStoreOptions = Readonly<{
   endpoint?: string;
+  publicEndpoint?: string;
   region: string;
   accessKeyId: string;
   secretAccessKey: string;
@@ -52,16 +53,24 @@ function copySource(bucket: string, key: string): string {
   return `${encodeURIComponent(bucket)}/${encodedKey}`;
 }
 
-function defaultDependencies(options: S3ObjectStoreOptions): S3ObjectStoreDependencies {
-  const client = new S3Client({
+function createClient(options: S3ObjectStoreOptions, endpoint: string | undefined): S3Client {
+  return new S3Client({
     region: options.region,
-    endpoint: options.endpoint,
+    endpoint,
     forcePathStyle: options.forcePathStyle,
     credentials: {
       accessKeyId: options.accessKeyId,
       secretAccessKey: options.secretAccessKey,
     },
   });
+}
+
+function defaultDependencies(options: S3ObjectStoreOptions): S3ObjectStoreDependencies {
+  const client = createClient(options, options.endpoint);
+  const signer =
+    options.publicEndpoint && options.publicEndpoint !== options.endpoint
+      ? createClient(options, options.publicEndpoint)
+      : client;
   return {
     send: (command, signal) => {
       const options = { abortSignal: signal };
@@ -76,9 +85,12 @@ function defaultDependencies(options: S3ObjectStoreOptions): S3ObjectStoreDepend
       if (!(command instanceof GetObjectCommand)) {
         throw new ObjectStoreOperationError("signRead", "Unsupported S3 signing command");
       }
-      return getSignedUrl(client, command, { expiresIn: expiresInSeconds });
+      return getSignedUrl(signer, command, { expiresIn: expiresInSeconds });
     },
-    close: () => client.destroy(),
+    close: () => {
+      client.destroy();
+      if (signer !== client) signer.destroy();
+    },
   };
 }
 

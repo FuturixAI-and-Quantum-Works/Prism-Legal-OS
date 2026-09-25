@@ -25,7 +25,7 @@ These are example prompts, not a guarantee that every request follows a fixed dr
 
 AI requires a configured provider and a model suitable for the task. Generated documents also need working document storage. See [AI provider setup](../../docs/providers.md).
 
-Indexed search additionally requires Qdrant with the supported inference API and a running worker. Check the Sources page for indexing status; unsupported or unextractable files may be skipped or fail. Basic drafting and uploads do not require indexing. See [Qdrant setup](../../README.md#configure-qdrant-for-rag).
+Indexed search additionally requires Qdrant, `OPENAI_API_KEY`, and a running worker. Check the Sources page for indexing status; unsupported or unextractable files may be skipped or fail. Basic drafting and uploads do not require indexing. See [the default behavior](../../README.md#know-the-default-behavior).
 
 AI output and citations need human verification. Luna assists with drafting and document analysis; it does not establish legal validity or replace qualified legal advice. Review how configured providers process document content before using sensitive material.
 

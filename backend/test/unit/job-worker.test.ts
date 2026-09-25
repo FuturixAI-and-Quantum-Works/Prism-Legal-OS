@@ -138,28 +138,18 @@ describe("startQueueWorker", () => {
           status: "failed",
           failure: {
             kind: "transient",
-            retryMode: "at-least-once",
+            retryMode: "provider-idempotent",
             message: "mail unavailable",
           },
         };
       },
       async health() {
-        return { status: "ready", provider: "smtp" };
+        return { status: "configured", provider: "resend" };
       },
-      async close() {},
     };
     configureEmail(
       {
-        mail: {
-          kind: "smtp",
-          host: "smtp.example.com",
-          port: 587,
-          secure: false,
-          auth: { kind: "none" },
-          fromEmail: "mail@example.com",
-          displayName: "Prism",
-          sendTimeoutMs: 1_000,
-        },
+        mail: { kind: "resend", apiKey: "test", fromEmail: "mail@example.com" },
         trustedActionOrigins: ["https://app.example.com"],
       },
       provider,

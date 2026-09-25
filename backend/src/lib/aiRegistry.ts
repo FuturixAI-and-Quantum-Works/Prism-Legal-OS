@@ -84,24 +84,16 @@ function parseProvider(value: string): Provider {
 }
 
 function serverConnections(config: AppConfig["ai"] = getAppConfig().ai): AiProviderConnection[] {
-  const configured = [
-    ["anthropic", config.anthropic],
-    ["google", config.google],
-    ["openai", config.openai],
-  ] as const;
-  return configured.flatMap(([provider, value]) =>
-    value.kind === "configured"
-      ? [
-          {
-            id: `server:${provider}`,
-            provider,
-            source: "server" as const,
-            name: `${provider} server connection`,
-            credential: value.apiKey,
-          },
-        ]
-      : [],
-  );
+  if (config.openai.kind === "disabled") return [];
+  return [
+    {
+      id: "server:openai",
+      provider: "openai",
+      source: "server",
+      name: "openai server connection",
+      credential: config.openai.apiKey,
+    },
+  ];
 }
 
 export function providerConnectionDto(
@@ -180,7 +172,6 @@ export async function listProviderConnections(
 async function normalizeConnectionInput(
   input: UpdateProviderConnectionInput,
   requireCredential: boolean,
-  aiConfig: AppConfig["ai"],
 ): Promise<UpdateProviderConnectionInput> {
   const credential = input.credential?.trim();
   if (requireCredential && !credential) throw new Error("AI provider credential is required");
@@ -195,9 +186,7 @@ async function normalizeConnectionInput(
       ...input,
       name,
       credential,
-      baseUrl: await validateCustomProviderEndpoint(input.baseUrl, {
-        allowLocalHttp: aiConfig.allowLocalHttpCustomEndpoints,
-      }),
+      baseUrl: await validateCustomProviderEndpoint(input.baseUrl),
     };
   }
   if (input.baseUrl) throw new Error("First-party AI connections cannot override their endpoint");
@@ -282,7 +271,7 @@ export async function createProviderConnection(
   database: AiRegistryDatabase = db,
   aiConfig: AppConfig["ai"] = getAppConfig().ai,
 ): Promise<ProviderConnectionDto> {
-  const input = await normalizeConnectionInput(rawInput, true, aiConfig);
+  const input = await normalizeConnectionInput(rawInput, true);
   if (!input.credential) throw new Error("AI provider credential is required");
   const encrypted = encryptCredential(
     input.credential,
@@ -335,7 +324,7 @@ export async function updateProviderConnection(
   database: AiRegistryDatabase = db,
   aiConfig: AppConfig["ai"] = getAppConfig().ai,
 ): Promise<ProviderConnectionDto | null> {
-  const input = await normalizeConnectionInput(rawInput, false, aiConfig);
+  const input = await normalizeConnectionInput(rawInput, false);
   return database.transaction(async (transaction) => {
     const [existing] = await transaction
       .select()

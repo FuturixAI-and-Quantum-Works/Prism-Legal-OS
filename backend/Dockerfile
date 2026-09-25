@@ -56,7 +56,6 @@ WORKDIR /app
 ENV NODE_ENV=production \
     PORT=8003 \
     HOME=/home/node \
-    LIBREOFFICE_PATH=/usr/bin/libreoffice \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
     PUPPETEER_SKIP_DOWNLOAD=true
 
@@ -70,7 +69,7 @@ COPY --chown=node:node docs/template-license.md docs/template-provenance.json ./
 COPY --from=build --chown=node:node /app/packages/protocol/package.json ./packages/protocol/package.json
 COPY --from=build --chown=node:node /app/packages/protocol/dist ./packages/protocol/dist
 
-RUN mkdir -p /app/data && chown node:node /app/data
+RUN mkdir -p /app/data /app/secrets && chown node:node /app/data /app/secrets
 
 WORKDIR /app/backend
 USER node

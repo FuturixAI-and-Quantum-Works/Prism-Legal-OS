@@ -94,7 +94,9 @@ The following groupings describe the inventory. In the application, all 54 impor
 
 ## Seed all 61 bundled templates
 
-Apply the database migrations and configure document storage first, as described in the [local setup guide](../README.md#start-prism-locally). Run both template seeds from the repository root:
+The setup step seeds both packs automatically. The Compose backend and the Render pre-deploy command run it, and host development runs it through `npm run setup --workspace @prism/backend`. See [Develop Prism on the host](../README.md#develop-prism-on-the-host).
+
+To rerun only the template seeds, apply the migrations and configure document storage first. Run both template seeds from the repository root:
 
 ```sh
 npm run seed:templates --workspace @prism/backend
@@ -105,7 +107,7 @@ The first command seeds the seven HTML templates. The second validates and seeds
 
 The seeds use separate stable keys. Rerunning them updates the same system-template records without creating duplicates; it can overwrite local changes to those bundled records. Templates imported through the operator command use a separate key namespace.
 
-The DOCX seed needs enabled document storage for the library's document-creation workflow. Use local storage in development or an S3-compatible object store in production. A storage-disabled import does not make source packages available to all template workflows. The [deployment guide](deployment.md#how-to-seed-templates-on-a-hosted-database) covers hosted seeding.
+The DOCX seed needs enabled document storage for the library's document-creation workflow. Use local storage in development or an S3-compatible object store in production. A storage-disabled import does not make source packages available to all template workflows. The [deployment guide](deployment.md#tutorial-deploy-the-render-blueprint) covers hosted deployments.
 
 Validate the bundled inputs without writing database rows or uploading objects:
 

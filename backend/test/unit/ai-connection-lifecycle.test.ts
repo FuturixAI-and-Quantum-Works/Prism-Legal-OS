@@ -69,15 +69,10 @@ const capabilities = {
   output: { text: true, structured: false, toolCalls: false },
 };
 const aiConfig = {
-  defaultModel: undefined,
-  requestTimeoutMs: 1_000,
-  allowLocalHttpCustomEndpoints: false,
   credentialEncryption: {
     activeKeyId: "v1",
     keys: { v1: "0123456789abcdef".repeat(4) },
   },
-  anthropic: { kind: "disabled" },
-  google: { kind: "disabled" },
   openai: { kind: "disabled" },
 } satisfies AppConfig["ai"];
 
@@ -269,5 +264,16 @@ describe("AI connection lifecycle", () => {
     expect(stale.rows).toEqual([{ enabled: false }]);
     expect(custom.rows).toEqual([{ enabled: true }]);
     expect(activeCatalog.rows).toEqual([{ count: String(AI_MODEL_CATALOG.length) }]);
+  });
+
+  it("lists the server OpenAI key as the only server connection", async () => {
+    const connections = await listProviderConnections(userId, database, {
+      ...aiConfig,
+      openai: { kind: "configured", apiKey: "server-openai-key" },
+    });
+
+    expect(connections.map(({ id, provider, source }) => ({ id, provider, source }))).toEqual([
+      { id: "server:openai", provider: "openai", source: "server" },
+    ]);
   });
 });

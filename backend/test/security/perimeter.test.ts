@@ -48,17 +48,13 @@ async function withServer(app: Express, run: (baseUrl: string) => Promise<void>)
   }
 }
 
-test("CORS origins are normalized, deduplicated, and validated", () => {
+test("the frontend origin is normalized and validated as the only trusted origin", () => {
   const config = parseAppConfig({
     ...baseEnvironment,
     FRONTEND_URL: "https://app.example.com/",
-    CORS_ALLOWED_ORIGINS: "https://admin.example.com, https://app.example.com",
   });
 
-  assert.deepEqual(config.auth.trustedOrigins, [
-    "https://app.example.com",
-    "https://admin.example.com",
-  ]);
+  assert.deepEqual(config.auth.trustedOrigins, ["https://app.example.com"]);
   assert.throws(
     () =>
       parseAppConfig({
@@ -162,12 +158,11 @@ test("endpoint limiter registry covers sensitive perimeter routes", () => {
 
 test("attached endpoint limiter blocks requests over its configured limit", async () => {
   const app = express();
-  const config = parseAppConfig({
-    ...baseEnvironment,
-    RATE_LIMIT_INVITATION_DECISION_MAX: "1",
-    RATE_LIMIT_INVITATION_DECISION_WINDOW_MINUTES: "15",
+  const { rateLimits } = parseAppConfig(baseEnvironment).runtime;
+  attachEndpointRateLimits(app, {
+    ...rateLimits,
+    invitationDecision: { windowMs: 15 * 60_000, max: 1 },
   });
-  attachEndpointRateLimits(app, config.runtime.rateLimits);
   app.use((_req, res) => res.sendStatus(204));
 
   await withServer(app, async (baseUrl) => {

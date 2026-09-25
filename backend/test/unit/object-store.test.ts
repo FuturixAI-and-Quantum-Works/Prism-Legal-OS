@@ -413,6 +413,43 @@ describe("S3ObjectStore", () => {
     }
   });
 
+  it.each([
+    [
+      "the public endpoint",
+      "http://localhost:9000",
+      "http://localhost:9000/prism/documents/file.pdf",
+    ],
+    [
+      "the endpoint without a public endpoint",
+      undefined,
+      "http://minio:9000/prism/documents/file.pdf",
+    ],
+  ])("signs reads for %s", async (_label, publicEndpoint, expectedUrl) => {
+    const store = new S3ObjectStore({
+      endpoint: "http://minio:9000",
+      publicEndpoint,
+      region: "us-east-1",
+      forcePathStyle: true,
+      accessKeyId: "access",
+      secretAccessKey: "secret",
+      bucket: "prism",
+      requestTimeoutMs: 60_000,
+    });
+    try {
+      const url = new URL(
+        await store.signRead({
+          ref: parseObjectRef("documents/file.pdf"),
+          ttl: parseSignedReadTtl(30),
+        }),
+      );
+      expect(`${url.origin}${url.pathname}`).toBe(expectedUrl);
+      expect(url.searchParams.get("X-Amz-SignedHeaders")).toBe("host");
+      expect(url.searchParams.get("X-Amz-Expires")).toBe("30");
+    } finally {
+      store.close();
+    }
+  });
+
   it("encodes each CopySource path segment", async () => {
     let commandSeen: CopyObjectCommand | undefined;
     const store = new S3ObjectStore(

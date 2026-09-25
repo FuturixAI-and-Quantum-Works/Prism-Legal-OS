@@ -14,7 +14,7 @@ The main runtime parts are:
 - [`packages/protocol/`](packages/protocol/) defines the typed server-sent event protocol shared by the API and frontend.
 - [`backend/src/db/schema/`](backend/src/db/schema/) defines the PostgreSQL schema in domain files.
 - An object store holds document bytes. PostgreSQL holds references and application state.
-- AI, RAG, and mail providers are external boundaries.
+- AI providers, Qdrant, and Resend are external boundaries.
 
 The API and worker are separate processes. Both require the same database, storage, mail, RAG, and encryption configuration. Only the API opens an HTTP port.
 
@@ -35,7 +35,7 @@ Feature code lives under [`frontend/src/client/features/`](frontend/src/client/f
 The API mounts Better Auth at `/auth`. [`backend/src/app.ts`](backend/src/app.ts) then applies:
 
 - Helmet headers.
-- Credentialed CORS for configured origins.
+- Credentialed CORS for `FRONTEND_URL`.
 - An origin check for unsafe cookie-authenticated requests.
 - General and endpoint-specific request limits.
 - JSON request parsing with a 50 MB limit.
@@ -74,7 +74,7 @@ The worker handles compliance runs, tabular generation, RAG indexing, email deli
 
 PostgreSQL stores document metadata and version references. The configured object store owns source bytes, generated DOCX files, and PDF renditions.
 
-Development defaults to local storage at `backend/data` when the workspace script starts the backend. Production defaults to disabled storage. S3-compatible storage is the supported production mode.
+Development defaults to local storage at `backend/data` when the workspace script starts the backend. Compose runs MinIO as its S3-compatible store. Production defaults to disabled storage. S3-compatible storage is the supported production mode.
 
 Document writes use domain services under [`backend/src/modules/documents/`](backend/src/modules/documents/). Drive writes record storage operations so the worker can reconcile work left by a crash.
 
@@ -88,8 +88,6 @@ Document writes use domain services under [`backend/src/modules/documents/`](bac
 - Puppeteer Chromium converts HTML to PDF.
 
 Each adapter has its own bounded queue. The converter limits input size, output size, execution time, concurrency, and queued work. HTML conversion disables JavaScript and blocks external resource requests.
-
-The configuration parser accepts `CONVERSION_SERVICE_URL`, but the current converter does not call a remote conversion service.
 
 ## AI and Luna
 
@@ -105,13 +103,13 @@ An AI request follows this path:
 
 Tools can read, compare, create, and edit documents. Other tools cover templates, search, projects, workspaces, workflows, and tabular reviews. The available tool set depends on the current scope.
 
-Server provider keys come from the process environment. Users can also store personal connections. Prism encrypts personal credentials with AES-256-GCM before writing them to PostgreSQL.
+The server OpenAI key comes from the process environment. Users can also store personal connections. Prism encrypts personal credentials with AES-256-GCM before writing them to PostgreSQL.
 
 ## Retrieval
 
-RAG is an optional Qdrant collection store. Without `QDRANT_URL` and `QDRANT_API_KEY`, Prism skips indexing and source-backed queries return a disabled result.
+RAG uses Qdrant collections. Without both `QDRANT_URL` and `OPENAI_API_KEY`, Prism skips indexing and source-backed queries return a disabled result. Compose runs a local Qdrant. `QDRANT_API_KEY` is needed only for Qdrant Cloud.
 
-When RAG is enabled, the worker downloads a signed object URL, extracts text, and upserts chunk embeddings into Qdrant. Qdrant Cloud inference owns dense and BM25 vectors. PostgreSQL records collection names, source versions, status, and retry details.
+When RAG is enabled, the worker reads the stored file, extracts text, and upserts chunks into Qdrant. OpenAI `text-embedding-3-small` produces the dense vectors. Qdrant's BM25 inference produces the sparse vectors. Collection names use the `prism_v2_` prefix. PostgreSQL records collection names, source versions, status, and retry details.
 
 ## Failure boundaries
 
