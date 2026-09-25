@@ -7,17 +7,19 @@ const repositoryRoot = path.resolve(import.meta.dirname, "../../..");
 const backendRoot = path.join(repositoryRoot, "backend");
 
 const runtimeCommands = {
-  hostMigration: "npm run build && node dist/scripts/migrate.js",
-  migration: "node dist/scripts/migrate.js",
+  hostSetup: "npm run build && node dist/scripts/setup.js",
+  setup: "node dist/scripts/setup.js",
   web: "node dist/index.js",
   worker: "node dist/worker.js",
 } as const;
 const localSetupCommands = [
+  "cp .env.example .env",
+  "docker compose up -d",
   "npm ci",
-  "docker compose up -d postgres mailpit",
-  "npm run db:migrate --workspace @prism/backend",
-  "npm run seed:core --workspace @prism/backend",
-  "npm run seed:templates --workspace @prism/backend",
+  "docker compose up -d postgres qdrant",
+  "cp backend/.env.example backend/.env",
+  "npm run setup --workspace @prism/backend",
+  "npm run dev",
 ] as const;
 const automaticMigrationStatement =
   "The backend container runs migrations automatically before it starts the API.";
@@ -26,7 +28,6 @@ const stalePostgresInitializationClaim =
 const operatorProvidedRenderUrls = [
   "BETTER_AUTH_URL",
   "FRONTEND_URL",
-  "CORS_ALLOWED_ORIGINS",
   "VITE_API_BASE_URL",
 ] as const;
 
@@ -50,7 +51,7 @@ describe("production deployment contract", () => {
     expect(runtimeStage).not.toMatch(/\/app\/package(?:-lock)?\.json/);
   });
 
-  it("builds host migrations and keeps deployment commands on compiled entrypoints", async () => {
+  it("builds host setup and keeps deployment commands on compiled entrypoints", async () => {
     const [manifestSource, renderBlueprint, composeConfig] = await Promise.all([
       readFile(path.join(backendRoot, "package.json"), "utf8"),
       readRepositoryFile("render.yaml"),
@@ -60,9 +61,9 @@ describe("production deployment contract", () => {
       scripts: Record<string, string>;
     };
 
-    expect(manifest.scripts["db:migrate"]).toBe(runtimeCommands.hostMigration);
+    expect(manifest.scripts.setup).toBe(runtimeCommands.hostSetup);
     expect(renderBlueprint).toContain(`dockerCommand: ${runtimeCommands.web}`);
-    expect(renderBlueprint).toContain(`preDeployCommand: ${runtimeCommands.migration}`);
+    expect(renderBlueprint).toContain(`preDeployCommand: ${runtimeCommands.setup}`);
     expect(renderBlueprint).toContain(`dockerCommand: ${runtimeCommands.worker}`);
     expect(renderBlueprint).not.toMatch(/(?:dockerCommand|preDeployCommand): npm /);
     expect(renderBlueprint).not.toContain(".onrender.com");
@@ -70,12 +71,12 @@ describe("production deployment contract", () => {
       expect(renderBlueprint).toMatch(new RegExp(`- key: ${key}\\n\\s+sync: false`));
     }
     expect(composeConfig).toContain(
-      `command: ["/bin/sh", "-c", "${runtimeCommands.migration} && exec ${runtimeCommands.web}"]`,
+      `command: ["/bin/sh", "-c", "${runtimeCommands.setup} && exec ${runtimeCommands.web}"]`,
     );
     expect(composeConfig).not.toContain("network_mode:");
   });
 
-  it("documents host and container migration order consistently", async () => {
+  it("documents quick start and host setup order consistently", async () => {
     const [readme, deploymentGuide] = await Promise.all([
       readRepositoryFile("README.md"),
       readRepositoryFile("docs/deployment.md"),

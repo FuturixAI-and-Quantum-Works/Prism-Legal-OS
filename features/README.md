@@ -27,9 +27,9 @@ These are connected capabilities, not an automatic legal decision-making process
 
 ## Set up the capabilities you need
 
-- Follow the [local setup guide](../README.md#start-prism-locally) to run Prism.
+- Follow the [quick start](../README.md#quick-start) to run Prism.
 - Configure an [AI provider](../docs/providers.md) for drafting, document assistance, and AI analysis.
-- Configure [Qdrant-backed retrieval](../README.md#configure-qdrant-for-rag) for indexed source search. Basic uploads do not require it.
+- Set `OPENAI_API_KEY` for indexed source search. Compose runs Qdrant for you. Basic uploads do not require it.
 - Run the worker for compliance analysis, tabular generation, indexing, and email delivery.
 - Use the [template catalog](../docs/template-catalog.md) for the bundled inventory, seeding, and licensed DOCX imports.
 

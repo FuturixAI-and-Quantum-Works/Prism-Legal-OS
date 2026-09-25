@@ -1,6 +1,6 @@
 # Contribute to Prism
 
-This guide describes how to prepare a change for review. Use the [local setup tutorial](README.md#start-prism-locally) before you begin.
+This guide describes how to prepare a change for review. Follow [Develop Prism on the host](README.md#develop-prism-on-the-host) before you begin.
 
 ## Choose the right place
 
@@ -20,13 +20,15 @@ Install the exact dependency graph from the lockfile.
 npm ci
 ```
 
-Start PostgreSQL and Mailpit, then set the environment described in the [local setup tutorial](README.md#start-postgresql-and-mailpit).
+Start PostgreSQL and Qdrant, copy the backend environment, and apply migrations and seeds.
 
 ```sh
-docker compose up -d postgres mailpit
+docker compose up -d postgres qdrant
+cp backend/.env.example backend/.env
+npm run setup --workspace @prism/backend
 ```
 
-Starting only PostgreSQL and Mailpit does not apply migrations. Run `db:migrate` for an empty database. The full Compose backend applies migrations before it starts.
+Rerun `setup` after you pull or generate a migration. The full Compose backend runs the same setup before it starts.
 
 ## Make a focused change
 

@@ -34,7 +34,13 @@ Copy the local object-store volume.
 docker run --rm --volume prism-local_prism_storage:/source:ro --volume "$PWD/backups:/backup" alpine:3.22 tar -C /source -czf /backup/prism-objects.tar.gz .
 ```
 
-Record the Git revision and retain the active deployment secrets in your secret manager. Do not put secrets in the backup directory.
+Copy the generated secrets file to a private location outside the backup directory. It holds the AI credential keyring and the application secrets.
+
+```sh
+docker run --rm --volume prism-local_prism_secrets:/source:ro alpine:3.22 cat /source/prism.env > prism-secrets.env
+```
+
+Record the Git revision. Move `prism-secrets.env` into your secret manager and delete the local copy.
 
 Restart the application.
 
@@ -42,7 +48,7 @@ Restart the application.
 docker compose start backend worker frontend
 ```
 
-The Compose project name is fixed to `prism-local`, so its local object volume is `prism-local_prism_storage`.
+The Compose project name is fixed to `prism-local`, so its volumes are named `prism-local_prism_storage` and `prism-local_prism_secrets`. The Qdrant search index is not part of the backup. Prism can rebuild it from the stored files.
 
 ## How-to: back up a hosted deployment
 
@@ -89,10 +95,10 @@ Do not test a restore over the only production copy.
    ```
 
 5. Point an isolated API and worker at the restored database and bucket.
-6. Apply migrations that were released after the backed-up revision.
+6. Apply migrations that were released after the backed-up revision. The setup command also reruns the seeds, which is safe.
 
    ```sh
-   npm run db:migrate --workspace @prism/backend
+   npm run setup --workspace @prism/backend
    ```
 
 7. Start one API and one worker.
@@ -133,15 +139,15 @@ The following procedure replaces the local Compose object volume. It is destruct
    docker compose up -d
    ```
 
-Do not add `-v` to `docker compose down` during this procedure. That option also deletes the PostgreSQL volume.
+Do not add `-v` to `docker compose down` during this procedure. That option also deletes the PostgreSQL and secrets volumes. The restored database needs the same `prism_secrets` volume, or a copy of the backed-up `prism.env` in it, to decrypt stored AI credentials.
 
 ## Reference: what the backup contains
 
 The PostgreSQL dump includes identities, sessions, workspaces, document metadata, comments, chat history, templates, approvals, jobs, outbox events, provider connection ciphertext, and RAG index metadata.
 
-The object-store copy includes uploaded sources, document versions, and generated renditions. It does not include an external RAG service's search index. After a loss of that index, requeue or repeat source indexing from Prism.
+The object-store copy includes uploaded sources, document versions, and generated renditions. It does not include the Qdrant search index. After a loss of that index, open **Sources** in Prism and retry indexing.
 
-Provider API keys configured directly in the environment are not in PostgreSQL. Neither are mail, object-store, OAuth, or database credentials.
+`OPENAI_API_KEY` is not in PostgreSQL. Neither are Resend, Qdrant, object-store, OAuth, or database credentials.
 
 ## Explanation: why coordinated recovery matters
 

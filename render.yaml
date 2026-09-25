@@ -13,7 +13,7 @@ services:
     dockerfilePath: ./backend/Dockerfile
     dockerContext: .
     dockerCommand: node dist/index.js
-    preDeployCommand: node dist/scripts/migrate.js
+    preDeployCommand: node dist/scripts/setup.js
     healthCheckPath: /health
     maxShutdownDelaySeconds: 30
     autoDeployTrigger: checksPass
@@ -28,20 +28,14 @@ services:
         sync: false
       - key: FRONTEND_URL
         sync: false
-      - key: CORS_ALLOWED_ORIGINS
-        sync: false
       - key: TRUST_PROXY_HOPS
         value: "1"
-      - key: SHUTDOWN_TIMEOUT_MS
-        value: "25000"
       - key: BETTER_AUTH_SECRET
         generateValue: true
       - key: AUTH_OTP_SECRET
         generateValue: true
       - key: DOWNLOAD_SIGNING_SECRET
         generateValue: true
-      - key: STORAGE_PROVIDER
-        value: s3
       - key: OBJECT_STORE_ENDPOINT
         sync: false
       - key: OBJECT_STORE_REGION
@@ -62,21 +56,11 @@ services:
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
-      - key: MAIL_PROVIDER
-        value: resend
       - key: RESEND_API_KEY
         sync: false
       - key: MAIL_FROM
         sync: false
-      - key: EMAIL_REPLY_TO
-        sync: false
-      - key: EMAIL_DISPLAY_NAME
-        value: Prism Legal
-      - key: ANTHROPIC_API_KEY
-        sync: false
       - key: OPENAI_API_KEY
-        sync: false
-      - key: GOOGLE_GENERATIVE_AI_API_KEY
         sync: false
       - key: QDRANT_URL
         sync: false
@@ -110,17 +94,8 @@ services:
           type: web
           name: futurixai-prism-backend
           envVarKey: FRONTEND_URL
-      - key: CORS_ALLOWED_ORIGINS
-        fromService:
-          type: web
-          name: futurixai-prism-backend
-          envVarKey: CORS_ALLOWED_ORIGINS
       - key: TRUST_PROXY_HOPS
         value: "1"
-      - key: SHUTDOWN_TIMEOUT_MS
-        value: "25000"
-      - key: WORKER_SHUTDOWN_TIMEOUT_MS
-        value: "25000"
       - key: BETTER_AUTH_SECRET
         fromService:
           type: web
@@ -136,8 +111,6 @@ services:
           type: web
           name: futurixai-prism-backend
           envVarKey: DOWNLOAD_SIGNING_SECRET
-      - key: STORAGE_PROVIDER
-        value: s3
       - key: OBJECT_STORE_ENDPOINT
         fromService:
           type: web
@@ -188,8 +161,6 @@ services:
           type: web
           name: futurixai-prism-backend
           envVarKey: GOOGLE_CLIENT_SECRET
-      - key: MAIL_PROVIDER
-        value: resend
       - key: RESEND_API_KEY
         fromService:
           type: web
@@ -200,28 +171,11 @@ services:
           type: web
           name: futurixai-prism-backend
           envVarKey: MAIL_FROM
-      - key: EMAIL_REPLY_TO
-        fromService:
-          type: web
-          name: futurixai-prism-backend
-          envVarKey: EMAIL_REPLY_TO
-      - key: EMAIL_DISPLAY_NAME
-        value: Prism Legal
-      - key: ANTHROPIC_API_KEY
-        fromService:
-          type: web
-          name: futurixai-prism-backend
-          envVarKey: ANTHROPIC_API_KEY
       - key: OPENAI_API_KEY
         fromService:
           type: web
           name: futurixai-prism-backend
           envVarKey: OPENAI_API_KEY
-      - key: GOOGLE_GENERATIVE_AI_API_KEY
-        fromService:
-          type: web
-          name: futurixai-prism-backend
-          envVarKey: GOOGLE_GENERATIVE_AI_API_KEY
       - key: QDRANT_URL
         fromService:
           type: web

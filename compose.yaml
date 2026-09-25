@@ -3,26 +3,15 @@ name: prism-local
 x-backend-environment: &backend-environment
   NODE_ENV: development
   PORT: "8003"
-  DATABASE_URL: postgresql://prism:${POSTGRES_PASSWORD:-prism-local-db}@postgres:5432/prism
-  BETTER_AUTH_URL: http://localhost:${BACKEND_PORT:-8003}
-  FRONTEND_URL: http://localhost:${FRONTEND_PORT:-8080}
-  PUBLIC_API_URL: http://localhost:${BACKEND_PORT:-8003}
-  CORS_ALLOWED_ORIGINS: http://localhost:${FRONTEND_PORT:-8080}
-  TRUST_PROXY_HOPS: "0"
-  BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-local-ba-Q7m2Vx9Kp4Rc8Tw6Hn3Yf5Ld}
-  AUTH_OTP_SECRET: ${AUTH_OTP_SECRET:-local-otp-N8q4Zj7Ms2Wc9Rx5Gt6Kv3Pb}
-  DOWNLOAD_SIGNING_SECRET: ${DOWNLOAD_SIGNING_SECRET:-local-dl-F6w9Jq3Nz8Vc2Kr7Xm4Tp5Hs}
-  AI_CREDENTIAL_ACTIVE_KEY_ID: local-v1
-  AI_CREDENTIAL_ENCRYPTION_KEYS: '{"local-v1":"${AI_CREDENTIAL_ENCRYPTION_KEY:-local-ai-C9r5Xm2Kv8Qp4Nz7Wd6Tj3Fs}"}'
-  STORAGE_PROVIDER: local
+  DATABASE_URL: postgresql://prism:prism-local-db@postgres:5432/prism
+  BETTER_AUTH_URL: http://localhost:8003
+  FRONTEND_URL: http://localhost:8080
   LOCAL_STORAGE_PATH: /app/data
-  MAIL_PROVIDER: smtp
-  SMTP_HOST: mailpit
-  SMTP_PORT: "1025"
-  SMTP_SECURE: "false"
-  MAIL_FROM: no-reply@prism.localhost
-  QDRANT_URL: ${QDRANT_URL:-}
-  QDRANT_API_KEY: ${QDRANT_API_KEY:-}
+  PRISM_SECRETS_FILE: /app/secrets/prism.env
+  QDRANT_URL: http://qdrant:6333
+  RESEND_API_KEY: ${RESEND_API_KEY:?Set RESEND_API_KEY in .env}
+  MAIL_FROM: ${MAIL_FROM:-onboarding@resend.dev}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
 
 x-backend-service: &backend-service
   image: prism-backend:local
@@ -32,6 +21,7 @@ x-backend-service: &backend-service
   environment: *backend-environment
   volumes:
     - prism_storage:/app/data
+    - prism_secrets:/app/secrets
   shm_size: 1gb
   restart: unless-stopped
   stop_grace_period: 20s
@@ -42,10 +32,10 @@ services:
     environment:
       POSTGRES_DB: prism
       POSTGRES_USER: prism
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prism-local-db}
+      POSTGRES_PASSWORD: prism-local-db
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -57,31 +47,25 @@ services:
     restart: unless-stopped
     stop_grace_period: 30s
 
-  mailpit:
-    image: axllent/mailpit:v1.27
-    environment:
-      MP_MAX_MESSAGES: "500"
+  qdrant:
+    image: qdrant/qdrant:v1.19.1
     ports:
-      - "127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025"
-      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
-    healthcheck:
-      test: ["CMD", "/mailpit", "readyz"]
-      interval: 10s
-      timeout: 5s
-      retries: 6
-      start_period: 5s
+      - "127.0.0.1:6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
     restart: unless-stopped
+    stop_grace_period: 30s
 
   backend:
     <<: *backend-service
-    command: ["/bin/sh", "-c", "node dist/scripts/migrate.js && exec node dist/index.js"]
+    command: ["/bin/sh", "-c", "node dist/scripts/setup.js && exec node dist/index.js"]
     ports:
-      - "127.0.0.1:${BACKEND_PORT:-8003}:8003"
+      - "127.0.0.1:8003:8003"
     depends_on:
       postgres:
         condition: service_healthy
-      mailpit:
-        condition: service_healthy
+      qdrant:
+        condition: service_started
     healthcheck:
       test:
         [
@@ -104,8 +88,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      mailpit:
-        condition: service_healthy
+      qdrant:
+        condition: service_started
       backend:
         condition: service_healthy
     healthcheck:
@@ -121,11 +105,11 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
       args:
-        VITE_API_BASE_URL: http://localhost:${BACKEND_PORT:-8003}
+        VITE_API_BASE_URL: http://localhost:8003
     environment:
       PORT: "8080"
     ports:
-      - "127.0.0.1:${FRONTEND_PORT:-8080}:8080"
+      - "127.0.0.1:8080:8080"
     depends_on:
       backend:
         condition: service_healthy
@@ -145,4 +129,6 @@ services:
 
 volumes:
   postgres_data:
+  qdrant_data:
   prism_storage:
+  prism_secrets:

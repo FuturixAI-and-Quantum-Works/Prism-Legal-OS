@@ -1,47 +1,45 @@
 # Deploy and operate Prism
 
-Prism needs a frontend, an API, a worker, PostgreSQL, object storage, and a mail provider. RAG and server-managed AI connections are optional.
+Prism needs a frontend, an API, a worker, PostgreSQL, object storage, and Resend for email. Document search needs Qdrant and an OpenAI API key.
 
 The checked-in [`render.yaml`](../render.yaml) is the production reference. The checked-in [`compose.yaml`](../compose.yaml) is a loopback-only local stack.
 
 ## Tutorial: run the local Compose stack
 
-Build and start PostgreSQL 16, Mailpit, the API, the worker, and the frontend.
+Copy the environment example and set `RESEND_API_KEY` and `OPENAI_API_KEY` in `.env`.
 
 ```sh
-docker compose up --build
+cp .env.example .env
 ```
+
+Build and start PostgreSQL 16, Qdrant, the API, the worker, and the frontend.
+
+```sh
+docker compose up -d
+```
+
+Every Compose command stops with an error while `RESEND_API_KEY` is empty.
 
 Open:
 
 - Prism at `http://localhost:8080`.
 - The API at `http://localhost:8003`.
 - Swagger UI at `http://localhost:8003/api-docs`.
-- Mailpit at `http://localhost:8025`.
 - PostgreSQL at `localhost:5432`.
+- Qdrant at `http://localhost:6333`.
 
-All published ports bind to loopback. The API and worker share the `prism_storage` volume. PostgreSQL uses the `postgres_data` volume.
+All published ports bind to loopback. Do not expose this stack to another network. It runs in development mode with a fixed database password.
 
-The Compose file contains development fallback secrets. Do not expose this stack to another network or reuse those values in a deployed environment.
+The backend container runs migrations automatically before it starts the API. It then seeds approval policies, workflows, the AI model catalog, seven HTML templates, and 54 DOCX templates. Every seed can rerun without creating duplicates, so each restart repeats the setup safely.
 
-The backend container runs migrations automatically before it starts the API. The migration runner records the applied baseline in Drizzle's journal. The stack does not run seeds.
+On first start, the backend generates `BETTER_AUTH_SECRET`, `AUTH_OTP_SECRET`, `DOWNLOAD_SIGNING_SECRET`, and the AI credential keyring into `/app/secrets/prism.env`. The API and worker share that file through the `prism_secrets` volume. A value set in the environment overrides the generated one.
 
-Seed core records from the built backend container:
+The stack uses four named volumes:
 
-```sh
-docker compose exec backend node dist/scripts/seedApprovalPolicies.js
-docker compose exec backend node dist/scripts/seedWorkflows.js
-docker compose exec backend node dist/scripts/seedAiCatalog.js
-```
-
-The backend image includes the bundled template inputs and compiled seed scripts. Seed all 61 templates:
-
-```sh
-docker compose exec backend node dist/scripts/seedTemplates.js
-docker compose exec backend node dist/scripts/seedBundledDocxTemplates.js
-```
-
-The commands seed seven HTML templates and 54 DOCX templates. They can be rerun without creating duplicate system templates. See the [template catalog](template-catalog.md) for the inventory and license.
+- `postgres_data` holds the database.
+- `qdrant_data` holds the document search index.
+- `prism_storage` holds uploaded and generated files.
+- `prism_secrets` holds the generated secrets.
 
 To import additional licensed or operator-owned DOCX files, copy them into a temporary operator directory and pass that directory explicitly:
 
@@ -51,7 +49,7 @@ docker compose cp /absolute/path/to/licensed-docx/. backend:/app/backend/operato
 docker compose exec backend node dist/scripts/seedDocxTemplates.js operator-docx
 ```
 
-Both DOCX seeds write source objects to the persistent `prism_storage` volume. A copied operator input directory is ephemeral.
+DOCX seeds write source objects to the persistent `prism_storage` volume. A copied operator input directory is ephemeral.
 
 Stop the stack without deleting data:
 
@@ -59,7 +57,7 @@ Stop the stack without deleting data:
 docker compose down
 ```
 
-Use `docker compose down -v` only when you intend to delete both named volumes.
+Use `docker compose down -v` only when you intend to delete every named volume. Deleting `prism_secrets` makes stored AI provider credentials unreadable.
 
 ## Tutorial: deploy the Render Blueprint
 
@@ -68,18 +66,7 @@ Use `docker compose down -v` only when you intend to delete both named volumes.
 3. Enter every secret marked `sync: false` before the first deploy.
 4. Wait for the PostgreSQL database, backend, worker, and static frontend to deploy.
 5. Confirm `GET /health` on the backend.
-6. Seed core records and the bundled templates from a backend shell, with the required object-store configuration in place.
-
-   ```sh
-   cd ..
-   node backend/dist/scripts/seedApprovalPolicies.js
-   node backend/dist/scripts/seedWorkflows.js
-   node backend/dist/scripts/seedAiCatalog.js
-   node backend/dist/scripts/seedTemplates.js
-   node backend/dist/scripts/seedBundledDocxTemplates.js
-   ```
-
-7. Sign in, send an OTP, upload a synthetic document, and test an AI connection if one is configured.
+6. Sign in, upload a synthetic document, and test an AI connection.
 
 The Blueprint creates:
 
@@ -88,7 +75,7 @@ The Blueprint creates:
 - `futurixai-prism-frontend`, a static site.
 - `futurixai-prism-postgres`, a private PostgreSQL 16 database.
 
-The backend pre-deploy command runs Drizzle migrations. The frontend build embeds `VITE_API_BASE_URL`; redeploy the static site after that URL changes.
+The backend pre-deploy command, `node dist/scripts/setup.js`, runs Drizzle migrations and every seed before each deploy. The frontend build embeds `VITE_API_BASE_URL`. Redeploy the static site after that URL changes.
 
 ## How-to: complete required Render configuration
 
@@ -103,6 +90,8 @@ OBJECT_STORE_SECRET_ACCESS_KEY=replace-me
 OBJECT_STORE_FORCE_PATH_STYLE=false
 ```
 
+Setting the `OBJECT_STORE_` values selects S3-compatible storage.
+
 Create and retain a credential-encryption keyring:
 
 ```sh
@@ -112,23 +101,30 @@ AI_CREDENTIAL_ENCRYPTION_KEYS='{"v1":"replace-with-a-long-random-secret"}'
 
 The Blueprint generates the three application secrets for the backend and references them from the worker. It does not generate the AI credential keyring because operators must retain that keyring with backups.
 
-The Blueprint selects Resend. Set:
+Set the Resend key. Set `MAIL_FROM` to an address on a domain you have verified in Resend. The default sender, `onboarding@resend.dev`, delivers only to the Resend account owner.
 
 ```sh
 RESEND_API_KEY=re_replace_me
 MAIL_FROM=prism@example.com
 ```
 
-`EMAIL_REPLY_TO` is optional. Set at least one provider key if users need a server-managed AI connection. See [Configure AI providers](providers.md).
+Set `OPENAI_API_KEY` to give every user a server OpenAI connection and to enable document search embeddings. See [Configure AI providers](providers.md).
 
-RAG is disabled because the Blueprint leaves `QDRANT_URL` empty. Set the Qdrant HTTPS endpoint and API key only when a cluster is available.
+Render does not run Qdrant from this Blueprint. To enable document search, create a [Qdrant Cloud](https://cloud.qdrant.io/) cluster and set both values:
+
+```sh
+QDRANT_URL=https://your-cluster.cloud.qdrant.io
+QDRANT_API_KEY=replace-with-qdrant-api-key
+```
+
+`QDRANT_URL` must use HTTPS in production. Document search stays disabled until `QDRANT_URL` and `OPENAI_API_KEY` are both set.
 
 ## How-to: use custom domains
 
 After attaching custom domains, update all URL settings together:
 
 - Backend `BETTER_AUTH_URL` to the public API origin.
-- Backend `FRONTEND_URL` and `CORS_ALLOWED_ORIGINS` to the public frontend origin.
+- Backend `FRONTEND_URL` to the public frontend origin.
 - Frontend `VITE_API_BASE_URL` to the public API origin.
 
 If Google sign-in is enabled, register the callback at:
@@ -139,34 +135,11 @@ https://api.example.com/auth/callback/google
 
 Redeploy the frontend after changing `VITE_API_BASE_URL`. Restart both backend processes after changing shared runtime settings.
 
-## How-to: seed templates on a hosted database
+## How-to: re-index after upgrading from MiniLM search
 
-The runtime image includes both bundled template packs. From a backend container shell, after migrations and with production database, application-secret, and S3-compatible object-store configuration in place, run:
+Earlier releases stored 384-dimension MiniLM vectors from Qdrant Cloud inference. Prism now stores OpenAI `text-embedding-3-small` vectors with Qdrant BM25, in new collections named with the `prism_v2_` prefix. Source-backed search fails for a scope until its sources are re-indexed.
 
-```sh
-cd ..
-node backend/dist/scripts/seedTemplates.js
-node backend/dist/scripts/seedBundledDocxTemplates.js
-```
-
-The shell starts in the container's `/app/backend` working directory; `cd ..` selects `/app`. The commands seed seven HTML templates and 54 DOCX templates. DOCX sources are uploaded to the configured object store; the image's bundled input files are not a substitute for persistent document storage.
-
-Alternatively, use a trusted checkout with Node dependencies and network access to the hosted PostgreSQL database and object store:
-
-1. Set the production `DATABASE_URL`, application secrets, object-store variables, and `NODE_ENV=production`.
-2. Run the seed commands.
-
-   ```sh
-   npm run seed:templates --workspace @prism/backend
-   npm run seed:bundled-docx --workspace @prism/backend
-   ```
-
-3. Remove temporary database network access.
-4. Confirm the expected templates in the application.
-
-To add further DOCX templates, follow [Import operator-owned DOCX templates](template-catalog.md#import-operator-owned-docx-templates) and pass the licensed directory to `seed:docx-templates`.
-
-Do not put production secrets in shell history or repository files. If policy forbids a workstation connection, create a short-lived private seeding job from a reviewed image that includes only the required seed inputs.
+After you upgrade, each user opens **Sources** and selects **Backfill existing files**. That queues every current document and drive file version for the new collections. Delete the old `prism_` collections from Qdrant once every source shows as indexed.
 
 ## How-to: release safely
 
@@ -178,7 +151,7 @@ Do not put production secrets in shell history or repository files. If policy fo
    ```
 
 3. Review generated migration SQL.
-4. Deploy the backend. Render runs migrations before replacing the web process.
+4. Deploy the backend. Render runs migrations and seeds before replacing the web process.
 5. Deploy the worker from the same revision and with the same shared configuration.
 6. Deploy the frontend.
 7. Check health, sign-in, upload, download, conversion, mail, and one queued operation.
@@ -191,23 +164,23 @@ Code rollback does not undo a database migration. Use a forward repair when poss
 - Host-run Vite port: `5173`.
 - Compose and backend container port: `8003`.
 - Compose frontend port: `8080`.
-- Compose Mailpit UI port: `8025`.
 - Compose PostgreSQL port: `5432`.
-- Production storage: disabled unless S3-compatible credentials are complete.
-- Development storage: local filesystem when no S3 configuration is present.
-- Mail: console provider when no provider is selected.
-- RAG: disabled when `QDRANT_URL` is empty.
+- Compose Qdrant port: `6333`.
+- Storage: S3-compatible when the `OBJECT_STORE_` values are set. Otherwise local files in development and disabled in production.
+- Mail: Resend when `RESEND_API_KEY` is set. Otherwise the console provider, which records delivery as suppressed.
+- Mail sender: `onboarding@resend.dev` unless `MAIL_FROM` is set.
+- Document search: enabled when `QDRANT_URL` and `OPENAI_API_KEY` are both set.
 - Worker concurrency: `4`.
-- API and worker graceful-shutdown timeout: 10 seconds by default; the Render Blueprint sets 25 seconds.
+- API and worker graceful-shutdown timeout: 10 seconds.
 - Local conversion: LibreOffice for DOC and DOCX, Chromium for HTML.
 
-Render filesystems are ephemeral. Never use local storage for deployed documents. The backend rejects local storage in production and whenever it detects Render.
+Render filesystems are ephemeral. Never use local storage for deployed documents. The backend rejects local storage in production.
 
 ## How-to: monitor and recover
 
 Monitor the public `/health` endpoint from outside Render. Use the authenticated status page for recorded database, API, and mail checks. Review API and worker logs together when a queued operation fails.
 
-The worker uses database leases. After a restart, it can reclaim expired jobs and outbox events. Repeated failure still needs operator action; inspect the stored attempt and error before retrying.
+The worker uses database leases. After a restart, it can reclaim expired jobs and outbox events. Repeated failure still needs operator action. Inspect the stored attempt and error before retrying.
 
 For an incident:
 

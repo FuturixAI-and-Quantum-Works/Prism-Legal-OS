@@ -24,7 +24,7 @@
 
 <p align="center">
   <a href="#features">Features</a> ·
-  <a href="#start-prism-locally">Quick start</a> ·
+  <a href="#quick-start">Quick start</a> ·
   <a href="./ARCHITECTURE.md">Architecture</a> ·
   <a href="docs/deployment.md">Deployment</a> ·
   <a href="mailto:connect@futurixai.com">Enterprise</a>
@@ -57,7 +57,7 @@ Start with a template or a request to Luna, bring your documents into a shared w
 | [Collaborative review and approvals](./features/review-and-approvals/README.md)     | Discuss clauses, resolve comments, approve or reject drafts, and follow activity history.                             |
 | [Shared legal workspaces](./features/workspaces/README.md)                          | Organize primary and supporting documents and invite collaborators with role-based access.                            |
 
-AI features require a configured provider. Indexed source retrieval also requires Qdrant, and background analysis requires the worker. Each feature guide explains its prerequisites. AI output and templates need qualified legal review before use.
+AI features require a configured provider. Indexed source retrieval also requires Qdrant and an OpenAI key, and background analysis requires the worker. Each feature guide explains its prerequisites. AI output and templates need qualified legal review before use.
 
 > [!IMPORTANT]
 > **Enterprise deployments**
@@ -66,178 +66,84 @@ AI features require a configured provider. Indexed source retrieval also require
 
 ## What runs
 
-The repository has three application processes and one required data service:
+The repository has three application processes and two data services:
 
 - [`frontend/`](frontend/) contains the React 19 and Vite 8 single-page application.
 - [`backend/src/index.ts`](backend/src/index.ts) starts the Express API.
 - [`backend/src/worker.ts`](backend/src/worker.ts) processes PostgreSQL-backed jobs and email outbox events.
 - PostgreSQL 16 stores application data, Better Auth records, queues, and outbox events.
+- Qdrant stores the document search index.
 
 The shared event contract lives in [`packages/protocol/`](packages/protocol/). Uploaded and generated files use local storage during development or an S3-compatible object store in production.
 
-## Start Prism locally
+## Quick start
 
-This tutorial starts PostgreSQL and Mailpit in Docker and runs Prism on the host.
-
-### Prerequisites
-
-Install these tools:
-
-- Node.js 22.x.
-- npm 11.19.0.
-- Docker Engine with Docker Compose.
-- LibreOffice if you need DOC or DOCX to PDF conversion.
-
-Puppeteer installs its Chromium build with the normal dependency install. If you suppress Puppeteer install scripts, HTML to PDF conversion does not work until Chromium is available.
-
-### Install the workspaces
-
-From the repository root, install the locked dependencies.
+Install Docker Engine with Docker Compose. You need a [Resend](https://resend.com/) API key for sign-in email. An [OpenAI](https://platform.openai.com/) API key enables Luna and document search.
 
 ```sh
-npm ci
+git clone https://github.com/FuturixAI-and-Quantum-Works/Prism.git
 ```
 
-### Start PostgreSQL and Mailpit
+Run the remaining commands from the new `Prism` directory.
 
 ```sh
-docker compose up -d postgres mailpit
+cp .env.example .env
 ```
 
-PostgreSQL is available on `localhost:5432`. Mailpit receives local email on port `1025` and shows it at `http://localhost:8025`. On a new volume, PostgreSQL creates an empty `prism` database. The migration step below applies the schema.
-
-### Set the required environment
-
-Run these commands in the shell that will start Prism. Generate a different value for every secret.
+Set `RESEND_API_KEY` and `OPENAI_API_KEY` in `.env`, then start Prism.
 
 ```sh
-export NODE_ENV=development
-export DATABASE_URL=postgresql://prism:prism-local-db@localhost:5432/prism
-export BETTER_AUTH_SECRET="$(openssl rand -hex 32)"
-export AUTH_OTP_SECRET="$(openssl rand -hex 32)"
-export DOWNLOAD_SIGNING_SECRET="$(openssl rand -hex 32)"
-export AI_CREDENTIAL_ACTIVE_KEY_ID=v1
-export AI_CREDENTIAL_ENCRYPTION_KEYS="{\"v1\":\"$(openssl rand -hex 32)\"}"
-export BETTER_AUTH_URL=http://localhost:3001
-export FRONTEND_URL=http://localhost:5173
-export VITE_API_BASE_URL=http://localhost:3001
-export MAIL_PROVIDER=smtp
-export SMTP_HOST=127.0.0.1
-export SMTP_PORT=1025
-export MAIL_FROM=no-reply@prism.localhost
+docker compose up -d
 ```
 
-`VITE_API_BASE_URL` is required for this setup. The frontend source fallback is `http://localhost:3001`, matching the API default.
+Open `http://localhost:8080` and sign in with your email address. The six-digit sign-in code arrives by email through Resend.
 
-### Configure sign-in delivery
+The default sender, `onboarding@resend.dev`, delivers only to the email address of your Resend account. To invite other people, set `MAIL_FROM` in `.env` to an address on a domain you have verified in Resend, then run `docker compose up -d` again.
 
-Better Auth uses six-digit email codes. The local settings above send them to Mailpit. Open `http://localhost:8025` to read a code.
+Compose starts PostgreSQL, Qdrant, the API, the worker, and the frontend. The backend container runs migrations automatically before it starts the API. It also seeds approval policies, workflows, the AI model catalog, and all 61 bundled templates. Prism generates its application secrets on first start and keeps them in the `prism_secrets` volume.
 
-For SMTP, set at least these values:
+The API listens on `http://localhost:8003`, with API documentation at `http://localhost:8003/api-docs`. To grant an existing account the global administrator role, run:
 
 ```sh
-export MAIL_PROVIDER=smtp
-export SMTP_HOST=smtp.example.com
-export SMTP_PORT=587
-export MAIL_FROM=prism@example.com
+docker compose exec backend node dist/scripts/seedAdmin.js --email admin@example.com
 ```
 
-Set both `SMTP_USERNAME` and `SMTP_PASSWORD` when the server requires authentication. Set `SMTP_SECURE=true` only for implicit TLS, which commonly uses port `465`.
-
-For Resend, set these values:
-
-```sh
-export MAIL_PROVIDER=resend
-export RESEND_API_KEY=re_replace_me
-export MAIL_FROM=prism@example.com
-```
-
-You can instead configure Google sign-in with `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. Register `http://localhost:3001/auth/callback/google` with Google for this local setup.
-
-### Configure Qdrant for RAG
-
-Source indexing and source-backed search need a Qdrant cluster. Leave `QDRANT_URL` unset to keep RAG disabled. Uploads still work in that mode.
-
-Create a [Qdrant Cloud](https://cloud.qdrant.io/) cluster, then copy the cluster URL and API key. Prism sends document text to Qdrant inference for dense and BM25 vectors (`sentence-transformers/all-minilm-l6-v2` and `qdrant/bm25`), so the cluster must expose that inference API.
-
-Set both values in the same environment that starts the API and worker. Copy them into `backend/.env` from [`.env.example`](.env.example), or export them in the shell:
-
-```sh
-export QDRANT_URL=https://your-cluster.cloud.qdrant.io
-export QDRANT_API_KEY=replace-with-qdrant-api-key
-```
-
-`QDRANT_URL` and `QDRANT_API_KEY` must be set together. The URL must be absolute, must not include credentials, a query string, or a fragment, and must use HTTPS outside local development. In development only, a loopback HTTP URL such as `http://127.0.0.1:6333` is accepted. `RAG_REQUEST_TIMEOUT_MS` is optional and defaults to `15000`.
-
-Restart both the API and the worker after you change these values. The worker claims `rag.index` jobs, extracts text from stored files, and upserts chunks into Qdrant. Open `http://localhost:5173/sources` while signed in to inspect indexed, pending, failed, and skipped sources.
-
-For the Compose stack, set the same two variables in the host environment before `docker compose up`. The Blueprint leaves them empty until a cluster is available.
-
-### Create the schema and seed data
-
-Apply the Drizzle migrations to the empty database before you seed it:
-
-```sh
-npm run db:migrate --workspace @prism/backend
-```
-
-Seed application records:
-
-```sh
-npm run seed:core --workspace @prism/backend
-npm run seed:templates --workspace @prism/backend
-npm run seed:bundled-docx --workspace @prism/backend
-```
-
-`seed:core` installs approval policies, workflows, and the AI model catalog. `seed:templates` installs seven HTML templates; `seed:bundled-docx` imports 54 DOCX templates, for **61 bundled templates** in total. The DOCX seed needs working document storage; the local setup above uses the development filesystem default. Both template seeds can be rerun without creating duplicate system templates.
-
-See the [template catalog](docs/template-catalog.md) for the inventory, validation commands, and additional licensed imports.
-
-The baseline at [`backend/drizzle/0000_prism_baseline.sql`](backend/drizzle/0000_prism_baseline.sql) is for a new database. Do not apply it over a private database created before the baseline. Use the [pre-baseline database migration guide](docs/pre-baseline-database-migration.md).
-
-### Start the application
-
-```sh
-npm run dev
-```
-
-Open `http://localhost:5173`. The API listens on `http://localhost:3001`. API documentation is available at `http://localhost:3001/api-docs`. The worker does not open a network port.
-
-To grant an existing account the global administrator role, run:
-
-```sh
-npm run seed:admin --workspace @prism/backend -- --email admin@example.com
-```
-
-### Stop local services
+Stop Prism without deleting data:
 
 ```sh
 docker compose down
 ```
 
-The command keeps the `postgres_data` and `prism_storage` volumes. Adding `-v` deletes the local database and stored files.
+Adding `-v` deletes the database, stored files, search index, and generated secrets.
 
-## Run the complete Docker stack
+## Develop Prism on the host
 
-The root Compose file can also build and run the frontend, API, worker, PostgreSQL, and Mailpit:
+Install Node.js 22.x, npm 11.19.0, and Docker Engine with Docker Compose. Install LibreOffice if you need DOC or DOCX to PDF conversion. Puppeteer installs its Chromium build with the normal dependency install.
+
+Complete the `.env` step from the quick start, then run:
 
 ```sh
-docker compose up --build
+npm ci
+docker compose up -d postgres qdrant
+cp backend/.env.example backend/.env
+npm run setup --workspace @prism/backend
+npm run dev
 ```
 
-The backend container runs migrations automatically before it starts the API. Do not run a separate migration command for the complete Docker stack.
+`setup` builds the backend, applies migrations, and runs every seed. Rerun it after you pull new migrations. The backend generates its secrets into `backend/.secrets.env` on first start.
 
-In this mode, open Prism at `http://localhost:8080` and the API at `http://localhost:8003`. See [Deploy and operate Prism](docs/deployment.md#tutorial-run-the-local-compose-stack) for seed behavior, volumes, and operational limits.
+Open `http://localhost:5173`. The API listens on `http://localhost:3001`. The worker does not open a network port.
+
+The baseline at [`backend/drizzle/0000_prism_baseline.sql`](backend/drizzle/0000_prism_baseline.sql) is for a new database. Do not apply it over a private database created before the baseline. Use the [pre-baseline database migration guide](docs/pre-baseline-database-migration.md).
 
 ## Know the default behavior
 
-- AI is unavailable until an administrator sets a server key or a user adds a provider connection under **Settings > AI settings**.
-- RAG is disabled when `QDRANT_URL` is unset. Uploads still work, but source indexing and source-backed search do not. See [Configure Qdrant for RAG](#configure-qdrant-for-rag).
-- Storage defaults to `backend/data` in development when the backend starts through its workspace script. Storage defaults to disabled in test and production.
-- Local filesystem storage is rejected in production and on Render. Configure S3-compatible storage before either the API or worker starts.
-- Mail defaults to the console provider. It records delivery as suppressed and does not expose email contents or OTP codes.
-- DOC and DOCX conversion uses local LibreOffice. HTML to PDF conversion uses local Puppeteer Chromium. `CONVERSION_SERVICE_URL` is validated but is not used by the current converter.
-- The worker handles RAG indexing, compliance runs, tabular generation, email delivery, health checks, and storage reconciliation. Run it whenever you need those features.
+- Luna uses the server OpenAI connection when `OPENAI_API_KEY` is set. Users can add their own Anthropic, Google, OpenAI, and OpenAI-compatible connections under **Settings > AI settings**.
+- Document search needs Qdrant and `OPENAI_API_KEY`. Compose runs Qdrant for you. Without both, uploads still work, but source indexing and source-backed search do not.
+- Storage uses the local filesystem in development. Production requires S3-compatible storage and rejects local storage.
+- Without `RESEND_API_KEY`, mail records delivery as suppressed and does not expose email contents or sign-in codes.
+- DOC and DOCX conversion uses LibreOffice. HTML to PDF conversion uses Puppeteer Chromium.
+- The worker handles document indexing, compliance runs, tabular generation, email delivery, health checks, and storage reconciliation.
 
 Read [provider setup](docs/providers.md) and [deployment operations](docs/deployment.md) for the complete configuration.
 
@@ -267,14 +173,13 @@ The full sequence verifies the publication rules, authentication migration guard
 
 ### Tutorials
 
-- This README contains the local first-run tutorial.
+- The [quick start](#quick-start) runs Prism with Docker Compose.
 
 ### How-to guides
 
 - [Contribute to Prism](./CONTRIBUTING.md).
 - [Report and handle security issues](./SECURITY.md).
 - [Configure AI providers](docs/providers.md).
-- [Configure Qdrant for RAG](#configure-qdrant-for-rag).
 - [Back up and restore Prism](docs/backups-and-restore.md).
 - [Move a pre-baseline private database](docs/pre-baseline-database-migration.md).
 - [Deploy and operate Prism](docs/deployment.md).
