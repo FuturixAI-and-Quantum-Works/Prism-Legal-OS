@@ -60,6 +60,16 @@ describe("parseAppConfig", () => {
       },
       /must use HTTPS/,
     ],
+    [
+      {
+        OBJECT_STORE_ENDPOINT: "https://storage.example.com",
+        OBJECT_STORE_PUBLIC_ENDPOINT: "http://downloads.example.com",
+        OBJECT_STORE_ACCESS_KEY_ID: "key",
+        OBJECT_STORE_SECRET_ACCESS_KEY: "secret",
+        OBJECT_STORE_BUCKET: "prism",
+      },
+      /OBJECT_STORE_PUBLIC_ENDPOINT must use HTTPS/,
+    ],
     [{ GOOGLE_CLIENT_ID: "client" }, /configured together/],
     [{ OBJECT_STORE_ACCESS_KEY_ID: "key" }, /must be configured together/],
   ])("rejects unsafe production configuration %#", (overrides, expected) => {
@@ -72,7 +82,12 @@ describe("parseAppConfig", () => {
       NODE_ENV: "development",
       FRONTEND_URL: "http://localhost:8080",
       BETTER_AUTH_URL: "http://localhost:8003",
-      LOCAL_STORAGE_PATH: "/app/data",
+      OBJECT_STORE_ENDPOINT: "http://minio:9000",
+      OBJECT_STORE_PUBLIC_ENDPOINT: "http://localhost:9000",
+      OBJECT_STORE_FORCE_PATH_STYLE: "true",
+      OBJECT_STORE_ACCESS_KEY_ID: "prism",
+      OBJECT_STORE_SECRET_ACCESS_KEY: "prism-local-minio",
+      OBJECT_STORE_BUCKET: "prism",
       QDRANT_URL: "http://qdrant:6333/",
       OPENAI_API_KEY: "openai-key",
       RESEND_API_KEY: "re_test",
@@ -81,9 +96,15 @@ describe("parseAppConfig", () => {
 
     expect(config.auth.trustedOrigins).toEqual(["http://localhost:8080"]);
     expect(config.storage).toEqual({
-      kind: "local",
-      directory: "/app/data",
-      publicApiUrl: "http://localhost:8003",
+      kind: "s3",
+      endpoint: "http://minio:9000",
+      publicEndpoint: "http://localhost:9000",
+      region: "us-east-1",
+      bucket: "prism",
+      accessKeyId: "prism",
+      secretAccessKey: "prism-local-minio",
+      forcePathStyle: true,
+      requestTimeoutMs: 60_000,
     });
     expect(config.rag).toEqual({
       kind: "qdrant",
@@ -158,6 +179,19 @@ describe("parseAppConfig", () => {
     expect(config.storage).toEqual({ kind: "disabled" });
   });
 
+  it("rejects HTTP object storage in test", () => {
+    expect(() =>
+      parseAppConfig({
+        ...validProductionEnvironment,
+        NODE_ENV: "test",
+        OBJECT_STORE_ENDPOINT: "http://minio:9000",
+        OBJECT_STORE_ACCESS_KEY_ID: "key",
+        OBJECT_STORE_SECRET_ACCESS_KEY: "secret",
+        OBJECT_STORE_BUCKET: "prism",
+      }),
+    ).toThrow("OBJECT_STORE_ENDPOINT must use HTTPS except for HTTP in development");
+  });
+
   it("parses a versioned AI credential keyring for rotation", () => {
     const config = parseAppConfig({
       ...validProductionEnvironment,
@@ -200,6 +234,7 @@ describe("parseAppConfig", () => {
     expect(config.storage).toEqual({
       kind: "s3",
       endpoint: "https://objects.example.com",
+      publicEndpoint: "https://objects.example.com",
       region: "eu-west-1",
       bucket: "prism-documents",
       accessKeyId: "access",

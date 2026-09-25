@@ -10,25 +10,21 @@ function parseBoolean(raw: string | undefined): boolean {
   return ["1", "true", "yes", "on"].includes(raw.trim().toLowerCase());
 }
 
-function parseEndpoint(raw: string, kind: RuntimeKind): string {
+function parseEndpoint(name: string, raw: string, kind: RuntimeKind): string {
   let url: URL;
   try {
     url = new URL(raw);
   } catch {
-    throw new Error("OBJECT_STORE_ENDPOINT must be a valid URL");
+    throw new Error(`${name} must be a valid URL`);
   }
-  const loopback = ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
-  if (
-    url.protocol !== "https:" &&
-    !(kind === "development" && url.protocol === "http:" && loopback)
-  ) {
-    throw new Error("OBJECT_STORE_ENDPOINT must use HTTPS except for loopback HTTP in development");
+  if (url.protocol !== "https:" && !(kind === "development" && url.protocol === "http:")) {
+    throw new Error(`${name} must use HTTPS except for HTTP in development`);
   }
   if (url.username || url.password) {
-    throw new Error("OBJECT_STORE_ENDPOINT must not include credentials");
+    throw new Error(`${name} must not include credentials`);
   }
   if (url.search || url.hash) {
-    throw new Error("OBJECT_STORE_ENDPOINT must not include a query or fragment");
+    throw new Error(`${name} must not include a query or fragment`);
   }
   return url.toString().replace(/\/$/, "");
 }
@@ -48,8 +44,13 @@ export function parseS3ObjectStoreConfig(
     );
   }
 
+  const parsedEndpoint = parseEndpoint("OBJECT_STORE_ENDPOINT", endpoint, kind);
+  const publicEndpoint = environment.OBJECT_STORE_PUBLIC_ENDPOINT?.trim();
   return {
-    endpoint: parseEndpoint(endpoint, kind),
+    endpoint: parsedEndpoint,
+    publicEndpoint: publicEndpoint
+      ? parseEndpoint("OBJECT_STORE_PUBLIC_ENDPOINT", publicEndpoint, kind)
+      : parsedEndpoint,
     region: environment.OBJECT_STORE_REGION?.trim() || "us-east-1",
     bucket,
     accessKeyId,

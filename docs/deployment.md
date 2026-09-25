@@ -12,7 +12,7 @@ Copy the environment example and set `RESEND_API_KEY` and `OPENAI_API_KEY` in `.
 cp .env.example .env
 ```
 
-Build and start PostgreSQL 16, Qdrant, the API, the worker, and the frontend.
+Build and start PostgreSQL 16, Qdrant, MinIO, the API, the worker, and the frontend.
 
 ```sh
 docker compose up -d
@@ -27,6 +27,7 @@ Open:
 - Swagger UI at `http://localhost:8003/api-docs`.
 - PostgreSQL at `localhost:5432`.
 - Qdrant at `http://localhost:6333`.
+- MinIO at `http://localhost:9000`. The browser downloads files from it through signed URLs.
 
 All published ports bind to loopback. Do not expose this stack to another network. It runs in development mode with a fixed database password.
 
@@ -38,7 +39,7 @@ The stack uses four named volumes:
 
 - `postgres_data` holds the database.
 - `qdrant_data` holds the document search index.
-- `prism_storage` holds uploaded and generated files.
+- `minio_data` holds uploaded and generated files in the `prism` bucket.
 - `prism_secrets` holds the generated secrets.
 
 To import additional licensed or operator-owned DOCX files, copy them into a temporary operator directory and pass that directory explicitly:
@@ -49,7 +50,7 @@ docker compose cp /absolute/path/to/licensed-docx/. backend:/app/backend/operato
 docker compose exec backend node dist/scripts/seedDocxTemplates.js operator-docx
 ```
 
-DOCX seeds write source objects to the persistent `prism_storage` volume. A copied operator input directory is ephemeral.
+DOCX seeds write source objects to the `prism` bucket in MinIO. A copied operator input directory is ephemeral.
 
 Stop the stack without deleting data:
 
@@ -58,6 +59,22 @@ docker compose down
 ```
 
 Use `docker compose down -v` only when you intend to delete every named volume. Deleting `prism_secrets` makes stored AI provider credentials unreadable.
+
+MinIO no longer publishes official images, so Compose pins `ghcr.io/coollabsio/minio`, a community build of the final MinIO release. Any S3-compatible store can replace it through the `OBJECT_STORE_` values in `compose.yaml`.
+
+## How-to: move files from an older Compose stack
+
+Earlier Compose stacks kept files in the `prism_storage` volume. Copy them into MinIO once after you upgrade.
+
+```sh
+docker compose run --rm -v prism-local_prism_storage:/old --entrypoint mc minio-init mirror /old local/prism
+```
+
+Remove the old volume after you confirm documents open in Prism.
+
+```sh
+docker volume rm prism-local_prism_storage
+```
 
 ## Tutorial: deploy the Render Blueprint
 
@@ -166,6 +183,7 @@ Code rollback does not undo a database migration. Use a forward repair when poss
 - Compose frontend port: `8080`.
 - Compose PostgreSQL port: `5432`.
 - Compose Qdrant port: `6333`.
+- Compose MinIO port: `9000`.
 - Storage: S3-compatible when the `OBJECT_STORE_` values are set. Otherwise local files in development and disabled in production.
 - Mail: Resend when `RESEND_API_KEY` is set. Otherwise the console provider, which records delivery as suppressed.
 - Mail sender: `onboarding@resend.dev` unless `MAIL_FROM` is set.

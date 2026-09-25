@@ -105,6 +105,7 @@ const storageSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("s3"),
     endpoint: z.string().url().optional(),
+    publicEndpoint: z.string().url().optional(),
     region: z.string().min(1),
     forcePathStyle: z.boolean(),
     accessKeyId: z.string().min(1),

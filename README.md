@@ -74,7 +74,7 @@ The repository has three application processes and two data services:
 - PostgreSQL 16 stores application data, Better Auth records, queues, and outbox events.
 - Qdrant stores the document search index.
 
-The shared event contract lives in [`packages/protocol/`](packages/protocol/). Uploaded and generated files use local storage during development or an S3-compatible object store in production.
+The shared event contract lives in [`packages/protocol/`](packages/protocol/). Uploaded and generated files live in an S3-compatible object store. Compose runs MinIO for it, and host development can use local files.
 
 ## Quick start
 
@@ -100,7 +100,7 @@ Open `http://localhost:8080` and sign in with your email address. The six-digit 
 
 The default sender, `onboarding@resend.dev`, delivers only to the email address of your Resend account. To invite other people, set `MAIL_FROM` in `.env` to an address on a domain you have verified in Resend, then run `docker compose up -d` again.
 
-Compose starts PostgreSQL, Qdrant, the API, the worker, and the frontend. The backend container runs migrations automatically before it starts the API. It also seeds approval policies, workflows, the AI model catalog, and all 61 bundled templates. Prism generates its application secrets on first start and keeps them in the `prism_secrets` volume.
+Compose starts PostgreSQL, Qdrant, MinIO, the API, the worker, and the frontend. MinIO stores uploaded and generated files in the `prism` bucket, which Compose creates on first start. The backend container runs migrations automatically before it starts the API. It also seeds approval policies, workflows, the AI model catalog, and all 61 bundled templates. Prism generates its application secrets on first start and keeps them in the `prism_secrets` volume.
 
 The API listens on `http://localhost:8003`, with API documentation at `http://localhost:8003/api-docs`. To grant an existing account the global administrator role, run:
 
@@ -140,7 +140,7 @@ The baseline at [`backend/drizzle/0000_prism_baseline.sql`](backend/drizzle/0000
 
 - Luna uses the server OpenAI connection when `OPENAI_API_KEY` is set. Users can add their own Anthropic, Google, OpenAI, and OpenAI-compatible connections under **Settings > AI settings**.
 - Document search needs Qdrant and `OPENAI_API_KEY`. Compose runs Qdrant for you. Without both, uploads still work, but source indexing and source-backed search do not.
-- Storage uses the local filesystem in development. Production requires S3-compatible storage and rejects local storage.
+- Storage uses MinIO under Compose and the local filesystem for host development. Production requires S3-compatible storage and rejects local storage.
 - Without `RESEND_API_KEY`, mail records delivery as suppressed and does not expose email contents or sign-in codes.
 - DOC and DOCX conversion uses LibreOffice. HTML to PDF conversion uses Puppeteer Chromium.
 - The worker handles document indexing, compliance runs, tabular generation, email delivery, health checks, and storage reconciliation.

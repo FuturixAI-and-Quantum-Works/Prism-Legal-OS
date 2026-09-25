@@ -16,10 +16,10 @@ Create a private backup directory.
 mkdir -p backups
 ```
 
-Stop the application processes so they cannot create database rows or objects during the backup. Keep PostgreSQL running.
+Stop the application processes and MinIO so nothing creates database rows or objects during the backup. Keep PostgreSQL running.
 
 ```sh
-docker compose stop frontend backend worker
+docker compose stop frontend backend worker minio
 ```
 
 Dump PostgreSQL.
@@ -28,10 +28,10 @@ Dump PostgreSQL.
 docker compose exec -T postgres pg_dump --format=custom --no-owner --no-acl --username=prism --dbname=prism > backups/prism.dump
 ```
 
-Copy the local object-store volume.
+Copy the MinIO data volume.
 
 ```sh
-docker run --rm --volume prism-local_prism_storage:/source:ro --volume "$PWD/backups:/backup" alpine:3.22 tar -C /source -czf /backup/prism-objects.tar.gz .
+docker run --rm --volume prism-local_minio_data:/source:ro --volume "$PWD/backups:/backup" alpine:3.22 tar -C /source -czf /backup/prism-objects.tar.gz .
 ```
 
 Copy the generated secrets file to a private location outside the backup directory. It holds the AI credential keyring and the application secrets.
@@ -45,10 +45,10 @@ Record the Git revision. Move `prism-secrets.env` into your secret manager and d
 Restart the application.
 
 ```sh
-docker compose start backend worker frontend
+docker compose start minio backend worker frontend
 ```
 
-The Compose project name is fixed to `prism-local`, so its volumes are named `prism-local_prism_storage` and `prism-local_prism_secrets`. The Qdrant search index is not part of the backup. Prism can rebuild it from the stored files.
+The Compose project name is fixed to `prism-local`, so its volumes are named `prism-local_minio_data` and `prism-local_prism_secrets`. The Qdrant search index is not part of the backup. Prism can rebuild it from the stored files.
 
 ## How-to: back up a hosted deployment
 
@@ -110,7 +110,7 @@ Use the same `BETTER_AUTH_SECRET` only if preserving existing sessions is part o
 
 ## How-to: restore the local object volume
 
-The following procedure replaces the local Compose object volume. It is destructive.
+The following procedure replaces the MinIO data volume. It is destructive.
 
 1. Stop the stack.
 
@@ -121,14 +121,14 @@ The following procedure replaces the local Compose object volume. It is destruct
 2. Remove and recreate only the object volume.
 
    ```sh
-   docker volume rm prism-local_prism_storage
-   docker compose create backend
+   docker volume rm prism-local_minio_data
+   docker compose create minio
    ```
 
 3. Extract the archive.
 
    ```sh
-   docker run --rm --volume prism-local_prism_storage:/target --volume "$PWD/backups:/backup:ro" alpine:3.22 tar -C /target -xzf /backup/prism-objects.tar.gz
+   docker run --rm --volume prism-local_minio_data:/target --volume "$PWD/backups:/backup:ro" alpine:3.22 tar -C /target -xzf /backup/prism-objects.tar.gz
    ```
 
 4. Start PostgreSQL, restore the database dump, and then start the application.

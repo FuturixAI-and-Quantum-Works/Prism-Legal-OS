@@ -6,7 +6,12 @@ x-backend-environment: &backend-environment
   DATABASE_URL: postgresql://prism:prism-local-db@postgres:5432/prism
   BETTER_AUTH_URL: http://localhost:8003
   FRONTEND_URL: http://localhost:8080
-  LOCAL_STORAGE_PATH: /app/data
+  OBJECT_STORE_ENDPOINT: http://minio:9000
+  OBJECT_STORE_PUBLIC_ENDPOINT: http://localhost:9000
+  OBJECT_STORE_FORCE_PATH_STYLE: "true"
+  OBJECT_STORE_ACCESS_KEY_ID: prism
+  OBJECT_STORE_SECRET_ACCESS_KEY: prism-local-minio
+  OBJECT_STORE_BUCKET: prism
   PRISM_SECRETS_FILE: /app/secrets/prism.env
   QDRANT_URL: http://qdrant:6333
   RESEND_API_KEY: ${RESEND_API_KEY:?Set RESEND_API_KEY in .env}
@@ -20,7 +25,6 @@ x-backend-service: &backend-service
     dockerfile: backend/Dockerfile
   environment: *backend-environment
   volumes:
-    - prism_storage:/app/data
     - prism_secrets:/app/secrets
   shm_size: 1gb
   restart: unless-stopped
@@ -56,6 +60,37 @@ services:
     restart: unless-stopped
     stop_grace_period: 30s
 
+  minio:
+    image: ghcr.io/coollabsio/minio:RELEASE.2025-10-15T17-29-55Z
+    command: ["server", "/data"]
+    environment:
+      MINIO_ROOT_USER: prism
+      MINIO_ROOT_PASSWORD: prism-local-minio
+      MC_HOST_local: http://prism:prism-local-minio@localhost:9000
+    ports:
+      - "127.0.0.1:9000:9000"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+  minio-init:
+    image: ghcr.io/coollabsio/minio:RELEASE.2025-10-15T17-29-55Z
+    entrypoint: ["mc"]
+    command: ["mb", "--ignore-existing", "local/prism"]
+    environment:
+      MC_HOST_local: http://prism:prism-local-minio@minio:9000
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: "no"
+
   backend:
     <<: *backend-service
     command: ["/bin/sh", "-c", "node dist/scripts/setup.js && exec node dist/index.js"]
@@ -66,6 +101,8 @@ services:
         condition: service_healthy
       qdrant:
         condition: service_started
+      minio-init:
+        condition: service_completed_successfully
     healthcheck:
       test:
         [
@@ -90,6 +127,8 @@ services:
         condition: service_healthy
       qdrant:
         condition: service_started
+      minio-init:
+        condition: service_completed_successfully
       backend:
         condition: service_healthy
     healthcheck:
@@ -130,5 +169,5 @@ services:
 volumes:
   postgres_data:
   qdrant_data:
-  prism_storage:
+  minio_data:
   prism_secrets:

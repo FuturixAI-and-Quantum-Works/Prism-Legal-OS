@@ -74,7 +74,7 @@ The worker handles compliance runs, tabular generation, RAG indexing, email deli
 
 PostgreSQL stores document metadata and version references. The configured object store owns source bytes, generated DOCX files, and PDF renditions.
 
-Development defaults to local storage at `backend/data` when the workspace script starts the backend. Production defaults to disabled storage. S3-compatible storage is the supported production mode.
+Development defaults to local storage at `backend/data` when the workspace script starts the backend. Compose runs MinIO as its S3-compatible store. Production defaults to disabled storage. S3-compatible storage is the supported production mode.
 
 Document writes use domain services under [`backend/src/modules/documents/`](backend/src/modules/documents/). Drive writes record storage operations so the worker can reconcile work left by a crash.
 
