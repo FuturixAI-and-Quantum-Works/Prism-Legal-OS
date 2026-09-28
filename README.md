@@ -23,7 +23,7 @@
 </p>
 
 <p align="center">
-  <a href="https://prism-legal-os-site-ohzg.vercel.app/">Product site</a> ·
+  <a href="https://prism.futurixai.com/">Product site</a> ·
   <a href="#features">Features</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="./ARCHITECTURE.md">Architecture</a> ·
@@ -39,7 +39,7 @@ Legal work is still too fragmented. Teams draft documents, review contracts, com
 
 ## Platform preview
 
-Product screenshots from the [Prism Legal OS site](https://prism-legal-os-site-ohzg.vercel.app/).
+Product screenshots from the [Prism Legal OS site](https://prism.futurixai.com/).
 
 ### Workspace
 
