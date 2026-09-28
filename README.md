@@ -8,11 +8,11 @@
   </a>
 </h1>
 
-<p align="center"><strong>Draft, review, and approve legal documents in one AI-powered workspace.</strong></p>
+<p align="center"><strong>The open-source command centre for legal teams.</strong></p>
 
 <p align="center">
-  A unified workspace for contract disputes, legal documents, review workflows,<br>
-  approvals, source-backed research, and auditable collaboration.
+  One legal OS to draft, review, and take command of every contract.<br>
+  Host it yourself, or have FuturixAI run it for you.
 </p>
 
 <p align="center">
@@ -23,6 +23,7 @@
 </p>
 
 <p align="center">
+  <a href="https://prism-legal-os-site-ohzg.vercel.app/">Product site</a> ·
   <a href="#features">Features</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="./ARCHITECTURE.md">Architecture</a> ·
@@ -34,33 +35,71 @@
 
 Prism is an open-source contract litigation management system for drafting, reviewing, sharing, and managing legal work. Luna is the AI assistant inside Prism. The browser application uses React and Vite. The API uses Express, Better Auth, PostgreSQL, and Drizzle ORM.
 
+Legal work is still too fragmented. Teams draft documents, review contracts, compare versions, check compliance, and manage negotiations across different tools. Prism brings that work together in one connected workspace.
+
 ## Platform preview
 
-### Work with the Prism Assistant
+Product screenshots from the [Prism Legal OS site](https://prism-legal-os-site-ohzg.vercel.app/).
 
-Create, compare, and summarize documents from one focused workspace.
+### Workspace
 
-![Prism Assistant showing document creation, comparison, and summarization actions](docs/assets/screenshots/prism-assistant.jpg)
+Review documents, work together, and keep every clause in context.
+
+![Prism document workspace with a legal agreement, highlighted clauses, an AI review, and a floating clause detection card](docs/assets/screenshots/landing/workspace.jpg)
+
+### Prism AI
+
+Research, draft, and refine legal documents with your AI assistant.
+
+![Prism AI assistant showing a conversation and an editable generated document preview](docs/assets/screenshots/landing/prism-ai.jpg)
+
+### Contract Intelligence
+
+Compare documents side by side and bring the details that matter into view.
+
+![Prism contract intelligence table comparing terms, confidentiality, obligations, and carve-outs across multiple documents](docs/assets/screenshots/landing/contract-intelligence.jpg)
+
+### Document Intelligence
+
+Analyze legal documents with speed and precision. Extract clauses, obligations, risks, key entities, and critical information from contracts, policies, and legal documents in seconds.
+
+![Prism analyzing a legal agreement alongside the source document](docs/assets/screenshots/landing/document-intelligence.jpg)
 
 ## Features
 
-Start with a template or a request to Luna, bring your documents into a shared workspace, and move drafts through review and approval. Explore the [feature guide](./features/README.md) for workflows, examples, and setup requirements.
+Draft faster. Check smarter. Work better. Start with a template or a request to Luna, bring your documents into a shared workspace, and move drafts through review and approval. Explore the [feature guide](./features/README.md) for workflows, examples, and setup requirements.
 
-| Feature                                                                             | What you can do                                                                                                       |
-| ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| [AI-powered drafting and document assistance](./features/ai-drafting/README.md)     | Draft and refine legal documents with Luna, ask questions about your files, and inspect supporting source references. |
-| [61 contract and legal-document templates](./features/contract-templates/README.md) | Start from 54 Word and seven HTML templates, fill guided fields, and create an editable document.                     |
-| [AI-assisted contract review](./features/contract-review/README.md)                 | Assess documents against defined checks and inspect potential issues with supporting context.                         |
-| [Multi-document tabular review](./features/tabular-review/README.md)                | Extract key terms across documents into a configurable review table.                                                  |
-| [Custom review playbooks](./features/review-playbooks/README.md)                    | Create reusable rulebooks to keep your team's review criteria consistent.                                             |
-| [Document editing and version history](./features/document-editor/README.md)        | Edit drafts, save numbered versions, and export Word or PDF documents.                                                |
-| [Collaborative review and approvals](./features/review-and-approvals/README.md)     | Discuss clauses, resolve comments, approve or reject drafts, and follow activity history.                             |
-| [Shared legal workspaces](./features/workspaces/README.md)                          | Organize primary and supporting documents and invite collaborators with role-based access.                            |
+| Feature                                                                             | What you can do                                                                                                                                                          |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [Shared legal workspaces](./features/workspaces/README.md)                          | Bring primary and supporting documents into a shared legal workspace. Organize agreements, versions, and collaborators with role-based access.                           |
+| [AI-powered drafting and document assistance](./features/ai-drafting/README.md)     | Research, draft, and refine legal documents with Luna. Ask questions about your files and inspect supporting source references.                                          |
+| [61 contract and legal-document templates](./features/contract-templates/README.md) | Start with a legal template and refine your draft with Luna. Use 54 Word and seven HTML templates with guided fields.                                                    |
+| [Multi-document tabular review](./features/tabular-review/README.md)                | Extract and compare key terms across multiple documents in a configurable review table.                                                                                  |
+| [AI-assisted contract review](./features/contract-review/README.md)                 | Identify legal risks before they become problems. Spot missing clauses, compliance gaps, conflicting terms, and potential risks with supporting context.                 |
+| [Custom review playbooks](./features/review-playbooks/README.md)                    | Check contracts against your team's review playbooks. Keep review criteria consistent across matters.                                                                    |
+| [Document editing and version history](./features/document-editor/README.md)        | Edit clauses, resolve comments, and keep a history of every version. Export Word or PDF documents ready for the next step.                                               |
+| [Collaborative review and approvals](./features/review-and-approvals/README.md)     | Bring the whole team into the conversation. Discuss clauses, share feedback, resolve comments, and approve or reject drafts with activity history.                       |
+
+### Legal workflow
+
+All your legal work, one connected workspace:
+
+1. **Organize.** Bring primary and supporting documents into a shared legal workspace.
+2. **Research.** Explore your sources with AI-assisted answers and supporting references.
+3. **Draft.** Start with a legal template and refine your draft with Luna.
+4. **Analyze.** Extract and compare key terms across multiple documents.
+5. **Review.** Check contracts against your team's review playbooks.
+6. **Refine.** Edit clauses, resolve comments, and keep a history of every version.
+7. **Approve.** Bring your team together to review and approve the final draft.
+8. **Export.** Export your document in Word or PDF, ready for the next step.
 
 AI features require a configured provider. Indexed source retrieval also requires Qdrant and an OpenAI key, and background analysis requires the worker. Each feature guide explains its prerequisites. AI output and templates need qualified legal review before use.
 
 > [!IMPORTANT]
-> **Enterprise deployments**
+> **Deploy on your terms**
+>
+> **Self-hosted:** your infrastructure, your control. Get the source, customize Prism, and run it wherever you choose.
+> **Managed by FuturixAI:** we deploy, maintain, and run Prism for your team. You focus on legal work.
 >
 > For private infrastructure, custom integrations, migration support, or managed rollouts, contact [connect@futurixai.com](mailto:connect@futurixai.com).
 
