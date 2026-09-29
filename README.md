@@ -8,7 +8,7 @@
   </a>
 </h1>
 
-<p align="center"><strong>The open-source command centre for legal teams.</strong></p>
+<p align="center"><strong>The Open-Source Legal OS</strong></p>
 
 <p align="center">
   One legal OS to draft, review, and take command of every contract.<br>
