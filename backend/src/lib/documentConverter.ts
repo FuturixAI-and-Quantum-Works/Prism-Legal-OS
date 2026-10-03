@@ -29,10 +29,8 @@ export type {
   DocumentConversionKind,
   DocumentConversionRequest,
   DocumentConverter,
-  DocumentConverterCapabilities,
   DocumentConverterConfig,
   DocumentConverterDependencies,
-  DocumentConverterHealth,
 } from "./documentConverter.types.js";
 
 type QueueJob = {

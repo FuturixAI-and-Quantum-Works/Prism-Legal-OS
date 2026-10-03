@@ -3,16 +3,10 @@ import {
   cancelDurableRun,
   hasDurableRunState,
   streamDurableSSE,
-  streamSSE,
   type StreamOutcome,
 } from '../../lib/sseTransport'
 import { apiUrl } from '../../lib/apiTransport'
-import {
-  isTabularChatEvent,
-  isTabularGenerateEvent,
-  type TabularChatEvent,
-  type TabularGenerateEvent,
-} from '@prism/protocol'
+import { isTabularGenerateEvent, type TabularGenerateEvent } from '@prism/protocol'
 
 export type { TabularGenerateEvent } from '@prism/protocol'
 export interface ColumnConfig {
@@ -352,49 +346,4 @@ export async function cancelTabularRegenerate(reviewId: string) {
     storageKey: tabularRegenerateStorageKey(reviewId),
     cancelUrl: (runId) => (runId ? `${runUrl}?run_id=${encodeURIComponent(runId)}` : runUrl),
   })
-}
-
-export interface TabularChatMessage {
-  role: 'user' | 'assistant'
-  content: string
-}
-
-export interface TabularChatOptions {
-  reviewId: string
-  messages: TabularChatMessage[]
-  chat_id?: string
-  model?: string
-  review_title?: string
-  onEvent: (event: TabularChatEvent) => void
-  onError?: (error: Error) => void
-  onComplete?: () => void
-  signal?: AbortSignal
-}
-
-export async function streamTabularChat(options: TabularChatOptions): Promise<StreamOutcome> {
-  const { reviewId, messages, chat_id, model, review_title, onEvent, onError, onComplete, signal } =
-    options
-
-  return streamSSE(
-    apiUrl(`/tabular-review/${reviewId}/chat`),
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        messages,
-        chat_id,
-        model,
-        review_title,
-      }),
-      signal,
-    },
-    {
-      accepts: isTabularChatEvent,
-      onEvent,
-      onError,
-      onComplete,
-    },
-  )
 }

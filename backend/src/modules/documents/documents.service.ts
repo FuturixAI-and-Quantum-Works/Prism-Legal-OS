@@ -50,14 +50,7 @@ import {
   type ResolvedDocumentZipOccurrence,
 } from "./documents.zip.js";
 
-export type {
-  DocumentZipFailure,
-  DocumentZipFailureReason,
-  DocumentZipMode,
-  DocumentZipOutcome,
-  DocumentZipRequest,
-  DocumentZipResult,
-} from "./documents.zip.js";
+export type { DocumentZipFailure, DocumentZipRequest, DocumentZipResult } from "./documents.zip.js";
 
 export class DocumentServiceError extends Error {
   constructor(

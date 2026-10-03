@@ -213,5 +213,3 @@ export function usePlaceholderWorkflow({
 
   return { change, editActionId, present, resolveEdit, start, submit, tool, values }
 }
-
-export type PlaceholderWorkflowModel = ReturnType<typeof usePlaceholderWorkflow>

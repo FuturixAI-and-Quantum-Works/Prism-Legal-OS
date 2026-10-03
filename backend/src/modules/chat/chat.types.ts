@@ -1,4 +1,3 @@
-import type { StreamEventWriter } from "@prism/protocol";
 import type { assertDocumentActionAllowed } from "../documents/documents.permissions.service.js";
 import type { AiRuntimeContext } from "../../lib/llm/types.js";
 import type { SSEWriter } from "../../lib/sseHelpers.js";
@@ -123,10 +122,3 @@ export type HandlerOutcome = Readonly<{
   events: unknown[];
   annotations?: unknown[];
 }>;
-
-export type ChatExecution = (
-  context: AssembledChatContext,
-  intent: ChatIntent,
-  write: StreamEventWriter,
-  signal: AbortSignal,
-) => Promise<HandlerOutcome>;
