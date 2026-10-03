@@ -50,14 +50,15 @@ export class DocumentPlaceholdersRepository {
     return version ?? null;
   }
 
-  async listValues(documentId: string) {
-    return this.database
+  async valuesByKey(documentId: string): Promise<Map<string, string>> {
+    const rows = await this.database
       .select({
         fieldKey: documentPlaceholderValues.fieldKey,
         value: documentPlaceholderValues.value,
       })
       .from(documentPlaceholderValues)
       .where(eq(documentPlaceholderValues.documentId, documentId));
+    return new Map(rows.map((row) => [row.fieldKey, row.value]));
   }
 
   async saveValues(
