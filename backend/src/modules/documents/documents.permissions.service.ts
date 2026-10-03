@@ -2,6 +2,7 @@ import { documentAccessAllows, documentRequiredRole } from "../access/access.mat
 import { accessAuthority } from "../access/access.composition.js";
 import {
   DOCUMENT_ACCESS_ACTIONS,
+  type AccessGrant,
   type AccessRole,
   type AccessSource,
   type DocumentAccessAction,
@@ -96,6 +97,14 @@ export class DocumentPermissionsService {
     userId: string,
     userEmail?: string | null,
   ): Promise<LoadedDocumentContext> {
+    return (await this.loadGrantedContext(documentId, userId, userEmail)).context;
+  }
+
+  private async loadGrantedContext(
+    documentId: string,
+    userId: string,
+    userEmail?: string | null,
+  ): Promise<{ context: LoadedDocumentContext; grant: AccessGrant }> {
     const document = await this.repository.findSessionDocument(documentId);
     if (!document) throw new DocumentPermissionError(404, "Document not found");
     const user = await this.repository.findSessionUser(userId);
@@ -109,7 +118,7 @@ export class DocumentPermissionsService {
     const allowedActions = DOCUMENT_ACCESS_ACTIONS.filter((action) =>
       documentAccessAllows(access, action),
     );
-    return {
+    const context: LoadedDocumentContext = {
       document_id: documentId,
       document_state: document.lifecycleStatus,
       document_role: access.documentRole,
@@ -133,6 +142,7 @@ export class DocumentPermissionsService {
       project_id: document.projectId,
       has_project_access: access.source === "project",
     };
+    return { context, grant: access };
   }
 
   async assertAllowed(
@@ -141,12 +151,15 @@ export class DocumentPermissionsService {
     userEmail: string | null | undefined,
     action: DocumentAccessAction,
   ): Promise<LoadedDocumentContext> {
-    const context = await this.loadContext(documentId, userId, userEmail);
-    const decision = await accessAuthority.decide({
-      actor: { userId, email: userEmail?.toLowerCase() ?? context.user_email ?? "" },
-      resource: { kind: "document", id: documentId },
-      action,
-    });
+    const { context, grant } = await this.loadGrantedContext(documentId, userId, userEmail);
+    const decision = accessAuthority.decideKnownGrant(
+      {
+        actor: { userId, email: context.user_email ?? "" },
+        resource: { kind: "document", id: documentId },
+        action,
+      },
+      grant,
+    );
     if (decision.allowed) return context;
     if (decision.reason === "not-found") {
       throw new DocumentPermissionError(404, "Document not found");
