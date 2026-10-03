@@ -16,6 +16,7 @@ export const ownerGrant: AccessGrant = {
 export function stubAccessAuthority(
   findGrant: (actor: AccessActor, resource: AccessResource) => AccessGrant | null = () =>
     ownerGrant,
+  grants: Partial<AccessRepository> = {},
 ): AccessAuthority {
   const repository: AccessRepository = {
     isGlobalAdmin: async () => false,
@@ -26,6 +27,7 @@ export function stubAccessAuthority(
     listTabularReviewGrants: async () => new Map(),
     listWorkflowGrants: async () => new Map(),
     listTemplateGrants: async () => new Map(),
+    ...grants,
   };
   return new AccessAuthority(repository);
 }

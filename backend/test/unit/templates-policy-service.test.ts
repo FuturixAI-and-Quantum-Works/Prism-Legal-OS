@@ -10,7 +10,7 @@ import {
   type ObjectRef,
   type ObjectStore,
 } from "../../src/storage/types.js";
-import { stubAccessAuthority } from "./access-test-helpers.js";
+import { ownerGrant, stubAccessAuthority } from "./access-test-helpers.js";
 
 const actor = { userId: "user-1", email: "user@example.com" };
 const template: Template = {
@@ -118,6 +118,20 @@ describe("template policies and services", () => {
     await expect(
       policy.requireOwned(template.id, actor.userId, "Template not found or not editable"),
     ).rejects.toEqual(new TemplateError(404, "Template not found or not editable"));
+  });
+
+  it("lists the templates the actor holds grants for", async () => {
+    const repo = repository();
+    const listTemplateGrants = vi.fn(async () => new Map([[template.id, ownerGrant]]));
+    const service = new TemplatesService(
+      repo,
+      new TemplatesAuthorizationPolicy(repo, stubAccessAuthority(undefined, { listTemplateGrants })),
+      new TemplateStorageCoordinator(new MemoryStore()),
+      documents(),
+    );
+    await service.list(actor, "user");
+    expect(listTemplateGrants).toHaveBeenCalledWith({ userId: actor.userId, email: "" });
+    expect(repo.list).toHaveBeenCalledWith([template.id], "user");
   });
 
   it("renders HTML templates through the document boundary", async () => {
