@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { axe } from 'jest-axe'
 import { describe, expect, it, vi } from 'vitest'
-import WorkspaceDetailPage from '../../features/workspaces/WorkspaceDetailPage'
+import WorkspaceDetailView from '../../features/workspaces/WorkspaceDetailView'
 
 vi.mock('../Layout', () => ({
   default: ({ children }: { children: () => React.ReactNode }) => <>{children()}</>,
@@ -103,7 +103,7 @@ describe('workspace detail accessibility', () => {
     const { container } = render(
       <MemoryRouter initialEntries={['/workspaces/workspace-1']}>
         <Routes>
-          <Route path="/workspaces/:workspaceId" element={<WorkspaceDetailPage />} />
+          <Route path="/workspaces/:workspaceId" element={<WorkspaceDetailView />} />
         </Routes>
       </MemoryRouter>,
     )
