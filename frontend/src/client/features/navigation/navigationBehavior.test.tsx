@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import Sidebar from '../../components/Sidebar'
+import { SidebarNavigation } from './SidebarNavigation'
 import Topbar from '../../components/Topbar'
 
 const mocks = vi.hoisted(() => ({
@@ -70,7 +70,7 @@ describe('navigation behavior', () => {
     const user = userEvent.setup()
     render(
       <MemoryRouter initialEntries={['/compliance']}>
-        <Sidebar collapsed={false} activePage="compliance" onLibraryClick={vi.fn()} />
+        <SidebarNavigation collapsed={false} activePage="compliance" onLibraryClick={vi.fn()} />
         <LocationProbe />
       </MemoryRouter>,
     )
@@ -89,7 +89,7 @@ describe('navigation behavior', () => {
     const user = userEvent.setup()
     const rendered = render(
       <MemoryRouter initialEntries={['/documents']}>
-        <Sidebar collapsed={false} activePage="documents" onLibraryClick={vi.fn()} />
+        <SidebarNavigation collapsed={false} activePage="documents" onLibraryClick={vi.fn()} />
         <LocationProbe />
       </MemoryRouter>,
     )
@@ -106,7 +106,7 @@ describe('navigation behavior', () => {
     rendered.unmount()
     render(
       <MemoryRouter>
-        <Sidebar collapsed activePage="home" onLibraryClick={vi.fn()} />
+        <SidebarNavigation collapsed activePage="home" onLibraryClick={vi.fn()} />
         <LocationProbe />
       </MemoryRouter>,
     )
