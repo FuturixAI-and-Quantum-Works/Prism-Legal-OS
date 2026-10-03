@@ -5,6 +5,7 @@ import { useResponsive } from './useMediaQuery'
 function stubViewport(initialWidth: number) {
   let width = initialWidth
   const listeners = new Set<() => void>()
+  let subscriptions = 0
   const matches = (query: string) => {
     const min = /min-width: (\d+)px/.exec(query)
     const max = /max-width: (\d+)px/.exec(query)
@@ -17,7 +18,10 @@ function stubViewport(initialWidth: number) {
         return matches(query)
       },
       media: query,
-      addEventListener: (_: string, listener: () => void) => listeners.add(listener),
+      addEventListener: (_: string, listener: () => void) => {
+        subscriptions += 1
+        listeners.add(listener)
+      },
       removeEventListener: (_: string, listener: () => void) => listeners.delete(listener),
     })),
   )
@@ -26,7 +30,7 @@ function stubViewport(initialWidth: number) {
       width = next
       listeners.forEach((listener) => listener())
     },
-    listenerCount: () => listeners.size,
+    subscriptionCount: () => subscriptions,
   }
 }
 
@@ -53,9 +57,9 @@ describe('useResponsive', () => {
   it('updates on viewport change without re-subscribing', () => {
     const viewport = stubViewport(1400)
     const { result } = renderHook(() => useResponsive())
-    const subscribed = viewport.listenerCount()
+    const subscribed = viewport.subscriptionCount()
     act(() => viewport.resize(400))
     expect(result.current).toEqual({ isMobile: true, isTablet: false, isDesktop: false })
-    expect(viewport.listenerCount()).toBe(subscribed)
+    expect(viewport.subscriptionCount()).toBe(subscribed)
   })
 })
