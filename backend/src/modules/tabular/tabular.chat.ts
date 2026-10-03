@@ -6,7 +6,7 @@ import {
 } from "@prism/protocol";
 import { runLLMStream } from "../ai/tools/runtimeCoordinator.js";
 import type { ChatMessage } from "../ai/tools/runtimeTypes.js";
-import type { TabularCellStore } from "../ai/tools/tableHelpers.js";
+import type { TabularCellStore } from "../ai/tools/tabularExecutors.js";
 import { completeText, type AiRuntimeContext } from "../../lib/llm/index.js";
 import { getUserAiRuntime } from "../../lib/aiRegistry.js";
 import { getUserModelSettings } from "../../lib/userSettings.js";

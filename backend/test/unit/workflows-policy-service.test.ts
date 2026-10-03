@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import { RulebookDraftService } from "../../src/modules/workflows/rulebook.service.js";
-import { RulebookAuthorizationPolicy } from "../../src/modules/workflows/rulebook.policy.js";
 import type { WorkflowsRepository } from "../../src/modules/workflows/workflows.repository.js";
 import { WorkflowsService } from "../../src/modules/workflows/workflows.service.js";
 import { WorkflowError, type Workflow } from "../../src/modules/workflows/workflows.types.js";
@@ -168,7 +167,7 @@ describe("workflow policies and services", () => {
         fileType: "docx",
       })),
     };
-    const access = new RulebookAuthorizationPolicy(async (ids) => ids);
+    const access = { canReadDocument: async () => true };
     const content = {
       extract: vi.fn(async () => "Credit agreement text"),
       read: vi.fn(),
@@ -213,7 +212,7 @@ describe("workflow policies and services", () => {
     const ai = { complete: vi.fn() };
     const service = new RulebookDraftService(
       repository,
-      new RulebookAuthorizationPolicy(async () => []),
+      { canReadDocument: async () => false },
       { extract: vi.fn(), read: vi.fn() },
       ai,
     );

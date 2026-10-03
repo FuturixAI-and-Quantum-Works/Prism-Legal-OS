@@ -8,7 +8,7 @@ import type {
   DocStore,
   WorkflowStore,
 } from "./runtimeTypes.js";
-import type { TabularCellStore } from "./tableHelpers.js";
+import type { TabularCellStore } from "./tabularExecutors.js";
 import type { TurnEditState } from "./turnState.js";
 import type { DocumentCreator } from "../../documents/documents.service.js";
 

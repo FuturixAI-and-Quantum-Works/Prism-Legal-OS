@@ -9,9 +9,9 @@ import {
 } from "../../../lib/llm/index.js";
 import { CITATIONS_OPEN_TAG, parseDocumentCitationAnnotations } from "../citations/citations.js";
 import { getAiToolSchemas, toolRegistry } from "./registry.js";
-import { createEmptyTabularCellStore, type TabularCellStore } from "./tableHelpers.js";
+import { createEmptyTabularCellStore, type TabularCellStore } from "./tabularExecutors.js";
 import { createToolExecutionEvents, type ToolExecutionContext, type ToolScope } from "./types.js";
-import { createTurnEditState } from "./turnState.js";
+import type { TurnEditState } from "./turnState.js";
 import type {
   AssistantEvent,
   ChatMessage,
@@ -68,7 +68,7 @@ export async function runLLMStream(params: {
       content: message.content ?? "",
     }));
   const events: AssistantEvent[] = [];
-  const turnEditState = createTurnEditState();
+  const turnEditState: TurnEditState = new Map();
   const parseCitationsForTurn =
     citationParser ?? ((text: string) => parseDocumentCitationAnnotations(text, docIndex));
   let fullText = "";

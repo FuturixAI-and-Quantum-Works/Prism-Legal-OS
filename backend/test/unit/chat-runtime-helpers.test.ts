@@ -8,7 +8,7 @@ import {
   resolveDocLabel,
 } from "../../src/modules/ai/tools/documentContent.js";
 import type { DocIndex, DocStore } from "../../src/modules/ai/tools/runtimeTypes.js";
-import { readTableCells } from "../../src/modules/ai/tools/tableHelpers.js";
+import { readTableCells } from "../../src/modules/ai/tools/tabularExecutors.js";
 import { registerCreatedDocumentInTurn } from "../../src/modules/ai/tools/turnState.js";
 
 describe("chat runtime helpers", () => {
