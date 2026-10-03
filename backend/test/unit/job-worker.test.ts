@@ -162,6 +162,47 @@ describe("startQueueWorker", () => {
     expect(keys).toEqual(["email:stable"]);
   });
 
+  it.each([
+    [
+      "a permanent mail failure as terminal",
+      {
+        status: "failed",
+        failure: { kind: "permanent", retryMode: "never", message: "mailbox rejected" },
+      },
+      { kind: "failed", error: "mailbox rejected" },
+    ],
+    [
+      "a transient failure the provider cannot retry as terminal",
+      {
+        status: "failed",
+        failure: { kind: "transient", retryMode: "never", message: "ambiguous send" },
+      },
+      { kind: "failed", error: "ambiguous send" },
+    ],
+    [
+      "suppressed mail as handled",
+      { status: "suppressed", reason: "Mail delivery is suppressed" },
+      { kind: "succeeded" },
+    ],
+  ] as const)("maps %s", async (_label, sendResult, expected) => {
+    configureEmail(
+      {
+        mail: { kind: "resend", apiKey: "test", fromEmail: "mail@example.com" },
+        trustedActionOrigins: ["https://app.example.com"],
+      },
+      {
+        send: async () => sendResult,
+        health: async () => ({ status: "configured", provider: "resend" }),
+      },
+    );
+
+    const handler = createWorkHandlers(new DisabledObjectStore()).outbox["email.template"];
+
+    await expect(handler?.(claimedEmail(), new AbortController().signal)).resolves.toEqual(
+      expected,
+    );
+  });
+
   it("records successful, retryable, and permanent handler outcomes", async () => {
     const repository = new FakeQueueRepository();
     repository.claims.push(claimedJob("success"), claimedJob("retry"), claimedJob("failure"));

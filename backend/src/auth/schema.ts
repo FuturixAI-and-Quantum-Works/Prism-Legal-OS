@@ -21,11 +21,13 @@ export const auth = createAuth(config, {
   database: database.database,
   async sendOtpEmail() {
     return {
-      success: false,
       status: "failed",
-      error: "Schema generation does not send mail",
-      failureKind: "permanent",
-      retryMode: "never",
+      failure: {
+        kind: "permanent",
+        retryMode: "never",
+        message: "Schema generation does not send mail",
+      },
+      attempts: 1,
     };
   },
 });

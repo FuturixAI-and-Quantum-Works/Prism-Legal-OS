@@ -1,8 +1,14 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, documentEmailEvents } from "../db/index.js";
-import { sendTemplateEmail, type SendEmailResult, type TemplateEmailInput } from "../lib/email.js";
+import {
+  emailEventFields,
+  isRetryable,
+  sendTemplateEmail,
+  type TemplateEmailInput,
+} from "../lib/email.js";
 import { cleanupOldHealthChecks, runAllHealthChecks } from "../lib/healthCheck.js";
+import type { MailSendResult } from "../mail/types.js";
 import { indexRetrievalSource } from "../modules/retrieval/retrieval.indexing.js";
 import type { RetrievalIndexInput } from "../modules/retrieval/retrieval.types.js";
 import { createProductionComplianceJobHandler } from "../modules/compliance/compliance.composition.js";
@@ -139,25 +145,24 @@ async function handleRag(claim: ClaimedJob, signal: AbortSignal): Promise<WorkOu
 async function recordTrackedEmail(
   tracking: NonNullable<z.infer<typeof queuedEmailSchema>["tracking"]>,
   claim: ClaimedOutboxEvent,
-  result: SendEmailResult,
+  result: MailSendResult,
 ): Promise<void> {
   const terminal =
     result.status !== "failed" ||
-    result.failureKind === "permanent" ||
-    result.retryMode === "never" ||
+    !isRetryable(result.failure) ||
     claim.attemptNumber >= claim.maxAttempts;
   if (!terminal) return;
+  const { suppressed, ...record } = emailEventFields(result);
   await db
     .update(documentEmailEvents)
     .set({
       status: result.status,
-      resendMessageId: result.messageId ?? null,
-      error: result.error ?? null,
+      ...record,
       retryCount: claim.attemptNumber,
       updatedAt: new Date(),
       metadata: {
         ...(tracking.metadata ?? {}),
-        suppressed: Boolean(result.suppressed),
+        suppressed,
       },
     })
     .where(eq(documentEmailEvents.id, tracking.documentEmailEventId));
@@ -175,9 +180,9 @@ async function handleEmail(claim: ClaimedOutboxEvent, signal: AbortSignal): Prom
   const result = await sendTemplateEmail(input);
   if (payload.tracking) await recordTrackedEmail(payload.tracking, claim, result);
   if (result.status !== "failed") return { kind: "succeeded" };
-  return result.failureKind === "transient" && result.retryMode !== "never"
-    ? { kind: "retry", error: result.error }
-    : { kind: "failed", error: result.error };
+  return isRetryable(result.failure)
+    ? { kind: "retry", error: result.failure.message }
+    : { kind: "failed", error: result.failure.message };
 }
 
 async function handleDocumentArtifactCleanup(
