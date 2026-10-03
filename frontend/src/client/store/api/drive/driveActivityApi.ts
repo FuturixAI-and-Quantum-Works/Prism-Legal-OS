@@ -17,10 +17,6 @@ export interface DriveActivity {
 
 export const driveActivityApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getDriveFileActivity: builder.query<DriveActivity[], string>({
-      query: (fileId) => `/drive/files/${fileId}/activity`,
-      providesTags: (_result, _error, fileId) => [{ type: 'DriveActivity', id: fileId }],
-    }),
     getWorkspaceActivity: builder.query<DriveActivity[], string>({
       query: (workspaceId) => `/drive/workspaces/${workspaceId}/activity`,
       providesTags: (_result, _error, workspaceId) => [
@@ -30,4 +26,4 @@ export const driveActivityApi = baseApi.injectEndpoints({
   }),
 })
 
-export const { useGetDriveFileActivityQuery, useGetWorkspaceActivityQuery } = driveActivityApi
+export const { useGetWorkspaceActivityQuery } = driveActivityApi
