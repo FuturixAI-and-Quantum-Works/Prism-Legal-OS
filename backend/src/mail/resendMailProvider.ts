@@ -48,14 +48,16 @@ export function createResendTransport(apiKey: string): ResendTransport {
           cc: message.cc ? [...message.cc] : undefined,
           bcc: message.bcc ? [...message.bcc] : undefined,
           subject: message.subject,
-          attachments: message.attachments?.map((attachment) => ({
-            filename: attachment.filename,
-            content:
-              attachment.content instanceof Uint8Array
-                ? Buffer.from(attachment.content)
-                : attachment.content,
-            contentType: attachment.contentType,
-          })),
+          attachments: message.attachments?.length
+            ? message.attachments.map((attachment) => ({
+                filename: attachment.filename,
+                content:
+                  attachment.content instanceof Uint8Array
+                    ? Buffer.from(attachment.content)
+                    : attachment.content,
+                contentType: attachment.contentType,
+              }))
+            : undefined,
           ...content,
         },
         { idempotencyKey: request.idempotencyKey },

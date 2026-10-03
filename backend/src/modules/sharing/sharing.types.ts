@@ -1,4 +1,4 @@
-import type { SendEmailResult } from "../../lib/email.js";
+import type { MailSendResult } from "../../mail/types.js";
 import type { ShareRole } from "../access/access.types.js";
 
 export type { ShareRole } from "../access/access.types.js";
@@ -7,7 +7,7 @@ export type ShareResourceType = "document" | "project" | "workspace";
 
 export type InviteDelivery = Readonly<{
   email: string;
-  status: SendEmailResult["status"] | "queued" | "skipped";
+  status: MailSendResult["status"] | "queued" | "skipped";
   message_id?: string;
   error?: string;
   attempts?: number;

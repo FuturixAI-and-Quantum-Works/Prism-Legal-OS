@@ -2,49 +2,11 @@ import { randomUUID } from "node:crypto";
 import type { AppConfig } from "../config.js";
 import { ConsoleMailProvider } from "../mail/consoleMailProvider.js";
 import { createMailProvider } from "../mail/createMailProvider.js";
-import type { MailProvider, MailSendResult } from "../mail/types.js";
+import type { MailAttachment, MailProvider, MailSendResult } from "../mail/types.js";
 
 export type EmailCategory = "transactional" | "collaboration" | "security";
 
-export type EmailAttachment = {
-  filename: string;
-  content: Buffer | Uint8Array | string;
-  contentType?: string;
-};
-
-export type SendEmailResult =
-  | {
-      success: true;
-      status: "sent";
-      messageId?: string;
-      attempts?: number;
-      error?: never;
-      suppressed?: never;
-      failureKind?: never;
-      retryMode?: never;
-    }
-  | {
-      success: false;
-      status: "suppressed";
-      error: string;
-      suppressed: true;
-      attempts?: number;
-      messageId?: never;
-      failureKind?: never;
-      retryMode?: never;
-    }
-  | {
-      success: false;
-      status: "failed";
-      error: string;
-      failureKind: "permanent" | "transient";
-      retryMode: "never" | "provider-idempotent";
-      attempts?: number;
-      messageId?: never;
-      suppressed?: never;
-    };
-
-export type SendOtpEmailResult = SendEmailResult;
+export type SendWithRetryResult = MailSendResult & Readonly<{ attempts: number }>;
 
 export type EmailTemplateKey =
   | "otp"
@@ -70,7 +32,7 @@ export type TemplateEmailInput = {
   cc?: string[];
   bcc?: string[];
   from?: string;
-  attachments?: EmailAttachment[];
+  attachments?: MailAttachment[];
   template: EmailTemplateKey | string;
   data: {
     subject?: string;
@@ -102,7 +64,7 @@ export type SendRawEmailInput = {
   subject: string;
   html?: string;
   text?: string;
-  attachments?: EmailAttachment[];
+  attachments?: MailAttachment[];
   idempotencyKey?: string;
 };
 
@@ -155,18 +117,6 @@ function normalizeRecipients(value: string | string[]): string[] {
 function normalizeOptionalRecipients(value: string[] | undefined): string[] | undefined {
   const recipients = value?.map((recipient) => recipient.trim()).filter(Boolean);
   return recipients?.length ? recipients : undefined;
-}
-
-function normalizeAttachments(attachments: EmailAttachment[] | undefined) {
-  if (!attachments?.length) return undefined;
-  return attachments.map((attachment) => ({
-    filename: attachment.filename,
-    content:
-      attachment.content instanceof Uint8Array
-        ? Buffer.from(attachment.content)
-        : attachment.content,
-    contentType: attachment.contentType,
-  }));
 }
 
 export async function getEmailConfigHealth() {
@@ -453,38 +403,25 @@ function senderAddress(): string | undefined {
   return fromEmail ? `${EMAIL_DISPLAY_NAME} <${fromEmail}>` : undefined;
 }
 
-function facadeResult(result: MailSendResult): SendEmailResult {
+export function deliveryRecord(result: MailSendResult) {
   switch (result.status) {
     case "sent":
-      return { success: true, status: "sent", messageId: result.messageId };
+      return { resendMessageId: result.messageId ?? null, error: null, suppressed: false };
     case "suppressed":
-      return {
-        success: false,
-        status: "suppressed",
-        suppressed: true,
-        error: result.reason,
-      };
+      return { resendMessageId: null, error: result.reason, suppressed: true };
     case "failed":
-      return {
-        success: false,
-        status: "failed",
-        error: result.failure.message,
-        failureKind: result.failure.kind,
-        retryMode: result.failure.retryMode,
-      };
+      return { resendMessageId: null, error: result.failure.message, suppressed: false };
   }
 }
 
-export async function sendRawEmail(input: SendRawEmailInput): Promise<SendEmailResult> {
+function permanentFailure(message: string): MailSendResult {
+  return { status: "failed", failure: { kind: "permanent", retryMode: "never", message } };
+}
+
+export async function sendRawEmail(input: SendRawEmailInput): Promise<MailSendResult> {
   const from = input.from?.trim() || senderAddress();
   if (emailConfig.mail.kind !== "console" && !isValidEmailAddress(from)) {
-    return {
-      success: false,
-      status: "failed",
-      error: "MAIL_FROM must be a valid email address",
-      failureKind: "permanent",
-      retryMode: "never",
-    };
+    return permanentFailure("MAIL_FROM must be a valid email address");
   }
 
   const result = await mailProvider.send({
@@ -497,15 +434,15 @@ export async function sendRawEmail(input: SendRawEmailInput): Promise<SendEmailR
       subject: input.subject,
       html: input.html,
       text: input.text,
-      attachments: normalizeAttachments(input.attachments),
+      attachments: input.attachments,
     },
   });
   if (result.status === "suppressed") console.warn("[email] delivery_suppressed");
   if (result.status === "failed") console.error("[email] send_failed");
-  return facadeResult(result);
+  return result;
 }
 
-export async function sendTemplateEmail(input: TemplateEmailInput): Promise<SendEmailResult> {
+export async function sendTemplateEmail(input: TemplateEmailInput): Promise<MailSendResult> {
   if (emailConfig.mail.kind === "console") {
     return sendRawEmail({
       to: input.to,
@@ -522,13 +459,7 @@ export async function sendTemplateEmail(input: TemplateEmailInput): Promise<Send
   try {
     actionUrl = validatedActionUrl(input.data.actionUrl);
   } catch (error) {
-    return {
-      success: false,
-      status: "failed",
-      error: error instanceof Error ? error.message : "Invalid email action URL",
-      failureKind: "permanent",
-      retryMode: "never",
-    };
+    return permanentFailure(error instanceof Error ? error.message : "Invalid email action URL");
   }
   const rendered = renderTemplate(input, actionUrl);
   return sendRawEmail({
@@ -546,15 +477,15 @@ export async function sendTemplateEmail(input: TemplateEmailInput): Promise<Send
 
 export async function sendTemplateEmailWithRetry(
   input: TemplateEmailInput,
-): Promise<SendEmailResult & { attempts: number }> {
+): Promise<SendWithRetryResult> {
   const maxAttempts = Math.max(1, input.maxAttempts ?? 3);
   const idempotencyKey = input.idempotencyKey ?? randomUUID();
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const result = await sendTemplateEmail({ ...input, idempotencyKey });
     if (
       result.status !== "failed" ||
-      result.failureKind === "permanent" ||
-      result.retryMode === "never" ||
+      result.failure.kind === "permanent" ||
+      result.failure.retryMode === "never" ||
       attempt === maxAttempts
     ) {
       return { ...result, attempts: attempt };
@@ -566,7 +497,7 @@ export async function sendTemplateEmailWithRetry(
   throw new Error("Mail retry loop exited unexpectedly");
 }
 
-export async function sendOtpEmail(email: string, otp: string): Promise<SendOtpEmailResult> {
+export async function sendOtpEmail(email: string, otp: string): Promise<SendWithRetryResult> {
   return sendTemplateEmailWithRetry({
     to: email,
     template: "otp",

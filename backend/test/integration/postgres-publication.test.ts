@@ -152,7 +152,7 @@ async function verifyAuthLifecycle(databaseUrl: string): Promise<void> {
       database: lifecycle.database,
       async sendOtpEmail(email, otp) {
         deliveries.push({ email, otp });
-        return { success: true, status: "sent", messageId: "ci-message", attempts: 1 };
+        return { status: "sent", messageId: "ci-message", attempts: 1 };
       },
     });
     const email = "ci-auth@example.test";

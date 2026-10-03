@@ -31,7 +31,6 @@ test("development defaults to explicit console suppression", async () => {
     subject: "Test",
     text: "Test",
   });
-  assert.equal(result.success, false);
   assert.equal(result.status, "suppressed");
 });
 

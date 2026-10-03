@@ -1,4 +1,4 @@
-import type { SendOtpEmailResult } from "../lib/email.js";
+import type { SendWithRetryResult } from "../lib/email.js";
 
 export type OtpDelivery = Readonly<{
   email: string;
@@ -6,8 +6,8 @@ export type OtpDelivery = Readonly<{
   type: "sign-in" | "email-verification" | "forget-password" | "change-email";
 }>;
 
-type OtpSender = (email: string, otp: string) => Promise<SendOtpEmailResult>;
-type OtpEventRecorder = (delivery: OtpDelivery, result: SendOtpEmailResult) => Promise<void>;
+type OtpSender = (email: string, otp: string) => Promise<SendWithRetryResult>;
+type OtpEventRecorder = (delivery: OtpDelivery, result: SendWithRetryResult) => Promise<void>;
 
 export function createOtpDeliveryCallback(
   send: OtpSender,
