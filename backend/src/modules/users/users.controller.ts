@@ -1,5 +1,6 @@
 import type { Request, RequestHandler, Response } from "express";
-import type { UsersService } from "./users.service.js";
+import type { UsersRepository } from "./users.repository.js";
+import type { UserAiSettings, UsersService } from "./users.service.js";
 import {
   createConnectionSchema,
   onboardingSchema,
@@ -24,7 +25,13 @@ function endpoint(
   };
 }
 
-export function createUsersController(service: UsersService) {
+export type UsersControllerDependencies = Readonly<{
+  profiles: UsersService;
+  accounts: Pick<UsersRepository, "ensureProfile" | "deleteAccount">;
+  ai: UserAiSettings;
+}>;
+
+export function createUsersController({ profiles, accounts, ai }: UsersControllerDependencies) {
   return {
     completeOnboarding: endpoint(async (req, res) => {
       const parsed = onboardingSchema.safeParse(req.body);
@@ -34,16 +41,16 @@ export function createUsersController(service: UsersService) {
         });
         return;
       }
-      res.json(await service.completeOnboarding(userId(res), parsed.data));
+      res.json(await profiles.completeOnboarding(userId(res), parsed.data));
     }, "Onboarding failed"),
 
     ensureProfile: endpoint(async (_req, res) => {
-      await service.ensureProfile(userId(res));
+      await accounts.ensureProfile(userId(res));
       res.json({ ok: true });
     }, "Failed to create profile"),
 
     getProfile: endpoint(async (_req, res) => {
-      res.json(await service.getProfile(userId(res)));
+      res.json(await profiles.getProfile(userId(res)));
     }, "Failed to load profile"),
 
     updateProfile: endpoint(async (req, res) => {
@@ -52,11 +59,11 @@ export function createUsersController(service: UsersService) {
         res.status(400).json({ detail: parsed.detail });
         return;
       }
-      res.json(await service.updateProfile(userId(res), parsed.update));
+      res.json(await profiles.updateProfile(userId(res), parsed.update));
     }, "Update failed"),
 
     listConnections: endpoint(async (_req, res) => {
-      res.json(await service.listConnections(userId(res)));
+      res.json(await ai.listConnections(userId(res)));
     }, "Failed to list connections"),
 
     createConnection: (async (req, res) => {
@@ -66,7 +73,7 @@ export function createUsersController(service: UsersService) {
         return;
       }
       try {
-        res.status(201).json(await service.createConnection(userId(res), parsed.data));
+        res.status(201).json(await ai.createConnection(userId(res), parsed.data));
       } catch (error) {
         res
           .status(400)
@@ -81,7 +88,7 @@ export function createUsersController(service: UsersService) {
         return;
       }
       try {
-        const connection = await service.updateConnection(
+        const connection = await ai.updateConnection(
           userId(res),
           req.params.connectionId,
           parsed.data,
@@ -99,7 +106,7 @@ export function createUsersController(service: UsersService) {
     }) satisfies RequestHandler,
 
     deleteConnection: endpoint(async (req, res) => {
-      const deleted = await service.deleteConnection(userId(res), req.params.connectionId);
+      const deleted = await ai.deleteConnection(userId(res), req.params.connectionId);
       if (!deleted) {
         res.status(404).json({ detail: "Connection not found" });
         return;
@@ -109,7 +116,7 @@ export function createUsersController(service: UsersService) {
 
     testConnection: (async (req, res) => {
       try {
-        const result = await service.testConnection(userId(res), req.params.connectionId);
+        const result = await ai.testConnection(userId(res), req.params.connectionId);
         if (result === "not-found") {
           res.status(404).json({ detail: "Connection not found" });
           return;
@@ -125,11 +132,11 @@ export function createUsersController(service: UsersService) {
     }) satisfies RequestHandler,
 
     listModels: endpoint(async (_req, res) => {
-      res.json(await service.listModels(userId(res)));
+      res.json(await ai.listModels(userId(res)));
     }, "Failed to list models"),
 
     getPreferences: endpoint(async (_req, res) => {
-      res.json(await service.getPreferences(userId(res)));
+      res.json(await ai.getPreferences(userId(res)));
     }, "Failed to load AI preferences"),
 
     setPreference: (async (req, res) => {
@@ -140,7 +147,7 @@ export function createUsersController(service: UsersService) {
         return;
       }
       try {
-        res.json(await service.setPreference(userId(res), task.data, body.data));
+        res.json(await profiles.setPreference(userId(res), task.data, body.data));
       } catch (error) {
         res
           .status(400)
@@ -149,7 +156,7 @@ export function createUsersController(service: UsersService) {
     }) satisfies RequestHandler,
 
     deleteAccount: endpoint(async (_req, res) => {
-      await service.deleteAccount(userId(res));
+      await accounts.deleteAccount(userId(res));
       res.status(204).send();
     }, "Delete failed"),
   };

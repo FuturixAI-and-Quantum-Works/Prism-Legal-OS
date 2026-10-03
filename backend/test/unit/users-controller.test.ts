@@ -102,7 +102,11 @@ async function serveUsers(
   repository: UsersRepository = fakeRepository(),
 ) {
   const ai = fakeAiSettings(aiOverrides);
-  const controller = createUsersController(new UsersService(repository, ai));
+  const controller = createUsersController({
+    profiles: new UsersService(repository, ai),
+    accounts: repository,
+    ai,
+  });
   const app = express();
   app.use(express.json());
   app.use((_req, res, next) => {

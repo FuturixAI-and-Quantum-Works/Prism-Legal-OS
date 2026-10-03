@@ -7,7 +7,10 @@ import { describe, expect, it, vi } from "vitest";
 import { createDownloadsController } from "../../src/modules/downloads/downloads.controller.js";
 import { createDownloadsRouter } from "../../src/modules/downloads/downloads.routes.js";
 import { DownloadsService } from "../../src/modules/downloads/downloads.service.js";
-import { createUsersController } from "../../src/modules/users/users.controller.js";
+import {
+  createUsersController,
+  type UsersControllerDependencies,
+} from "../../src/modules/users/users.controller.js";
 import { createUsersRouter } from "../../src/modules/users/users.routes.js";
 import { UsersService } from "../../src/modules/users/users.service.js";
 
@@ -29,6 +32,10 @@ function registeredRoutes(router: express.Router): Set<string> {
   );
 }
 
+function usersDependencies(profiles: UsersService): UsersControllerDependencies {
+  return { profiles, accounts: Object.create(null), ai: Object.create(null) };
+}
+
 describe("downloads and users route contracts", () => {
   it("preserves every endpoint", () => {
     const downloads = registeredRoutes(
@@ -36,7 +43,9 @@ describe("downloads and users route contracts", () => {
     );
     expect(downloads).toEqual(new Set(["GET /local/:token", "GET /:token"]));
 
-    const users = registeredRoutes(createUsersRouter(Object.create(UsersService.prototype)));
+    const users = registeredRoutes(
+      createUsersRouter(usersDependencies(Object.create(UsersService.prototype))),
+    );
     expect(users).toEqual(
       new Set([
         "PUT /onboarding",
@@ -136,7 +145,7 @@ describe("downloads and users route contracts", () => {
         (disposition, filename) => `${disposition}; filename="${filename}"`,
       ).local,
     );
-    app.patch("/user/profile", createUsersController(users).updateProfile);
+    app.patch("/user/profile", createUsersController(usersDependencies(users)).updateProfile);
     const server = app.listen(0, "127.0.0.1");
     await new Promise<void>((resolve) => server.once("listening", resolve));
     const address = server.address();
