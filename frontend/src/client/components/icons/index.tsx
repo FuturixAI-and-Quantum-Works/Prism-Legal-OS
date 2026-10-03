@@ -1,4 +1,6 @@
 import assistant from '../../assets/icons/assistant.png'
+import projectFolderIcon from '../../assets/project-folder-icon.svg'
+import uploadIcon from '../../assets/upload.svg'
 
 export const HomeIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -279,4 +281,12 @@ export const ChevronRightIcon = ({
       strokeLinejoin="round"
     />
   </svg>
+)
+
+export const ProjectIcon = ({ size = 25, alt = 'Project' }: { size?: number; alt?: string }) => (
+  <img src={projectFolderIcon} alt={alt} style={{ width: size, height: size }} />
+)
+
+export const UploadIcon = ({ size = 25 }: { size?: number }) => (
+  <img src={uploadIcon} alt="" style={{ height: size, width: size }} />
 )
