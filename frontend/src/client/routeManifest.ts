@@ -15,7 +15,7 @@ const withLayout =
   <Props extends object>(
     activePage: string,
     load: () => Promise<Readonly<{ default: ComponentType<Props> }>>,
-    props: Props,
+    props?: Props,
   ) =>
   async (): Promise<RouteModule> => {
     const [{ default: Layout }, { default: Page }] = await Promise.all([
@@ -23,7 +23,8 @@ const withLayout =
       load(),
     ])
     return {
-      default: () => createElement(Layout, { activePage, children: createElement(Page, props) }),
+      default: () =>
+        createElement(Layout, { activePage, children: createElement(Page, props as Props) }),
     }
   }
 
@@ -98,17 +99,17 @@ export const routeDefinitions: readonly RouteDefinition[] = [
   {
     path: appRoutePatterns.project,
     access: 'protected',
-    load: withLayout('projects', () => import('./features/projects/ProjectDetailPage'), {}),
+    load: withLayout('projects', () => import('./features/projects/ProjectDetailPage')),
   },
   {
     path: '/library',
     access: 'protected',
-    load: withLayout('library', () => import('./features/documents/DocumentsFeature'), {}),
+    load: withLayout('library', () => import('./features/documents/DocumentsFeature')),
   },
   {
     path: '/templates',
     access: 'protected',
-    load: withLayout('library', () => import('./features/templates/TemplateLibraryFeature'), {}),
+    load: withLayout('library', () => import('./features/templates/TemplateLibraryFeature')),
   },
   {
     path: '/template-preview/:templateId',
@@ -152,12 +153,12 @@ export const routeDefinitions: readonly RouteDefinition[] = [
   {
     path: '/settings',
     access: 'protected',
-    load: withLayout('settings', () => import('./features/settings/SettingsFeature'), {}),
+    load: withLayout('settings', () => import('./features/settings/SettingsFeature')),
   },
   {
     path: '/documents',
     access: 'protected',
-    load: withLayout('documents', () => import('./features/documents/DocumentsFeature'), {}),
+    load: withLayout('documents', () => import('./features/documents/DocumentsFeature')),
   },
   {
     path: '/documents/new',
