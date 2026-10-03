@@ -62,7 +62,7 @@ export class DriveAccessRequestsService implements DriveAccessRequests {
     if (!workspace) throw new DriveError(404, "Workspace not found");
 
     const requester = await this.repository.findUser(input.requestedByUserId);
-    const existingGrant = await this.authority.findGrant(
+    const existingGrant = await this.authority.grants.findGrant(
       {
         userId: input.requestedByUserId,
         email: requester?.email.toLowerCase() ?? "",

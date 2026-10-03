@@ -6,8 +6,10 @@ const provider = vi.hoisted(() => ({
 }));
 const authority = vi.hoisted(() => ({
   decide: vi.fn(),
-  listProjectGrants: vi.fn(),
-  listWorkspaceGrants: vi.fn(),
+  grants: {
+    listProjectGrants: vi.fn(),
+    listWorkspaceGrants: vi.fn(),
+  },
 }));
 const repository = vi.hoisted(() => ({
   findCollection: vi.fn(),
@@ -112,8 +114,8 @@ describe("retrieval query access", () => {
   });
 
   it("derives accessible source scopes from the unified authority", async () => {
-    authority.listProjectGrants.mockResolvedValue(new Map([["project-1", {}]]));
-    authority.listWorkspaceGrants.mockResolvedValue(new Map([["workspace-1", {}]]));
+    authority.grants.listProjectGrants.mockResolvedValue(new Map([["project-1", {}]]));
+    authority.grants.listWorkspaceGrants.mockResolvedValue(new Map([["workspace-1", {}]]));
 
     await expect(
       accessibleRetrievalScopes({ userId: "user-1", userEmail: "USER@EXAMPLE.COM" }),
@@ -122,7 +124,7 @@ describe("retrieval query access", () => {
       workspaceIds: ["workspace-1"],
     });
     const actor = { userId: "user-1", email: "user@example.com" };
-    expect(authority.listProjectGrants).toHaveBeenCalledWith(actor);
-    expect(authority.listWorkspaceGrants).toHaveBeenCalledWith(actor);
+    expect(authority.grants.listProjectGrants).toHaveBeenCalledWith(actor);
+    expect(authority.grants.listWorkspaceGrants).toHaveBeenCalledWith(actor);
   });
 });

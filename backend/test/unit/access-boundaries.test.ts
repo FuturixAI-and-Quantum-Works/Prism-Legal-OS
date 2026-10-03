@@ -56,7 +56,7 @@ describe("access architecture boundaries", () => {
       await Promise.all(files.map((file) => readFile(path.join(sourceRoot, file), "utf8")))
     ).join("\n");
 
-    expect(source).toMatch(/(?:accessAuthority|this\.authority)\.findGrant/);
+    expect(source).toMatch(/(?:accessAuthority|this\.authority)\.grants\.findGrant/);
     expect(source).not.toMatch(/workspace\.ownerId\s*===\s*input\.requestedByUserId/);
     expect(source).not.toMatch(/existingMember/);
     expect(source).not.toMatch(/document\.userId\s*!==\s*actor\.userId/);

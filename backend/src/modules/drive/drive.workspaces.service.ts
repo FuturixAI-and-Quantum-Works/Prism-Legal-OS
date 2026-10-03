@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import type { ObjectStore } from "../../storage/types.js";
+import type { AccessAuthority } from "../access/access.authority.js";
 import type { DriveActivityRepository } from "./drive.activity.js";
 import type { DriveWorkspaceRepository } from "./drive.repository.js";
 import { DriveStorageCoordinator } from "./drive.storage.js";
@@ -30,6 +31,7 @@ export class DriveWorkspacesService {
   constructor(
     private readonly repository: DriveWorkspaceRepository,
     private readonly policy: DriveAuthorizationPolicy,
+    private readonly authority: AccessAuthority,
     private readonly activity: DriveActivityRepository,
     objectStore: ObjectStore,
     operations: DriveStorageOperationRepository,
@@ -39,7 +41,9 @@ export class DriveWorkspacesService {
   }
 
   async list(actor: DriveActor) {
-    return this.repository.listWorkspaces(await this.policy.listWorkspaceGrants(actor));
+    return this.repository.listWorkspaces(
+      await this.authority.grants.listWorkspaceGrants({ userId: actor.userId, email: "" }),
+    );
   }
 
   async create(actor: DriveActor, input: { name: string; description: string | null }) {

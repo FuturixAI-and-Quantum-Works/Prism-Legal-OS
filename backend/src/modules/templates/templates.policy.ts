@@ -8,10 +8,6 @@ export class TemplatesAuthorizationPolicy {
     private readonly authority: AccessAuthority,
   ) {}
 
-  listGrants(userId: string) {
-    return this.authority.listTemplateGrants({ userId, email: "" });
-  }
-
   async requireAccessible(templateId: string, userId: string): Promise<Template> {
     const decision = await this.authority.decide({
       actor: { userId, email: "" },

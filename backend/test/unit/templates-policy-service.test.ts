@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { AccessAuthority } from "../../src/modules/access/access.authority.js";
 import { TemplatesAuthorizationPolicy } from "../../src/modules/templates/templates.policy.js";
 import type { TemplatesRepository } from "../../src/modules/templates/templates.repository.js";
 import { TemplatesService } from "../../src/modules/templates/templates.service.js";
@@ -103,6 +104,27 @@ function documents() {
   };
 }
 
+function templatesService(
+  repo: TemplatesRepository,
+  {
+    authority = stubAccessAuthority(),
+    store = new MemoryStore(),
+    documents: documentCreator = documents(),
+  }: Partial<{
+    authority: AccessAuthority;
+    store: ObjectStore;
+    documents: ReturnType<typeof documents>;
+  }> = {},
+): TemplatesService {
+  return new TemplatesService(
+    repo,
+    new TemplatesAuthorizationPolicy(repo, authority),
+    authority,
+    new TemplateStorageCoordinator(store),
+    documentCreator,
+  );
+}
+
 describe("template policies and services", () => {
   it("hides inaccessible and non-owned templates behind 404 responses", async () => {
     const repo = repository({
@@ -123,12 +145,9 @@ describe("template policies and services", () => {
   it("lists the templates the actor holds grants for", async () => {
     const repo = repository();
     const listTemplateGrants = vi.fn(async () => new Map([[template.id, ownerGrant]]));
-    const service = new TemplatesService(
-      repo,
-      new TemplatesAuthorizationPolicy(repo, stubAccessAuthority(undefined, { listTemplateGrants })),
-      new TemplateStorageCoordinator(new MemoryStore()),
-      documents(),
-    );
+    const service = templatesService(repo, {
+      authority: stubAccessAuthority(undefined, { listTemplateGrants }),
+    });
     await service.list(actor, "user");
     expect(listTemplateGrants).toHaveBeenCalledWith({ userId: actor.userId, email: "" });
     expect(repo.list).toHaveBeenCalledWith([template.id], "user");
@@ -137,12 +156,7 @@ describe("template policies and services", () => {
   it("renders HTML templates through the document boundary", async () => {
     const repo = repository();
     const documentCreator = documents();
-    const service = new TemplatesService(
-      repo,
-      new TemplatesAuthorizationPolicy(repo, stubAccessAuthority()),
-      new TemplateStorageCoordinator(new MemoryStore()),
-      documentCreator,
-    );
+    const service = templatesService(repo, { documents: documentCreator });
     const result = await service.createDocument(actor, template.id, {
       values: { name: "Aqua" },
     });
@@ -167,12 +181,7 @@ describe("template policies and services", () => {
         throw new Error("database failed");
       }),
     });
-    const service = new TemplatesService(
-      repo,
-      new TemplatesAuthorizationPolicy(repo, stubAccessAuthority()),
-      new TemplateStorageCoordinator(store),
-      documents(),
-    );
+    const service = templatesService(repo, { store });
     await expect(service.clone(actor, template.id)).rejects.toThrow("database failed");
     expect([...store.objects.keys()]).toEqual([sourceRef]);
   });

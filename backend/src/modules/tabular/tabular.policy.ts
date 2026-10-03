@@ -74,11 +74,11 @@ export class TabularAuthorizationPolicy {
   constructor(private readonly authority: AccessAuthority) {}
 
   async listReviewIds(actor: TabularActor): Promise<readonly string[]> {
-    return [...(await this.authority.listTabularReviewGrants(actor)).keys()];
+    return [...(await this.authority.grants.listTabularReviewGrants(actor)).keys()];
   }
 
   async roleFor(review: TabularReview, actor: TabularActor): Promise<ReviewAccessRole | null> {
-    const access = await this.authority.findGrant(actor, {
+    const access = await this.authority.grants.findGrant(actor, {
       kind: "tabular-review",
       id: review.id,
     });
@@ -128,7 +128,7 @@ export class TabularAuthorizationPolicy {
   }
 
   async projectRole(projectId: string, actor: TabularActor): Promise<AccessRole | null> {
-    const access = await this.authority.findGrant(actor, { kind: "project", id: projectId });
+    const access = await this.authority.grants.findGrant(actor, { kind: "project", id: projectId });
     return access?.role ?? null;
   }
 

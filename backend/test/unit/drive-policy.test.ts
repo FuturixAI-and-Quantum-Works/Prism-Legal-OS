@@ -100,17 +100,10 @@ describe("DriveWorkspacesService.list", () => {
     const grants = new Map([[workspace.id, ownerGrant]]);
     const listWorkspaceGrants = vi.fn(async () => grants);
     const listWorkspaces = vi.fn(async () => []);
-    const authority = stubAccessAuthority(undefined, { listWorkspaceGrants });
     const service = new DriveWorkspacesService(
       { listWorkspaces } as never,
-      new DriveAuthorizationPolicy(
-        {
-          workspaces: { findWorkspace: async () => workspace },
-          files: { findFile: async () => file },
-          folders: { findFolder: async () => null },
-        },
-        authority,
-      ),
+      {} as never,
+      stubAccessAuthority(undefined, { listWorkspaceGrants }),
       {} as never,
       {} as never,
       {} as never,

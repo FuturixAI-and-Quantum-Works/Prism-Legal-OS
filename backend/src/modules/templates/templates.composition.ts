@@ -15,6 +15,7 @@ function createProductionTemplatesService(
   return new TemplatesService(
     repository,
     new TemplatesAuthorizationPolicy(repository, accessAuthority),
+    accessAuthority,
     new TemplateStorageCoordinator(objectStore),
     documents,
   );

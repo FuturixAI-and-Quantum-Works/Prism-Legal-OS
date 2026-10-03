@@ -88,7 +88,7 @@ describe("workflow policies and services", () => {
       ]),
     });
     const authority = stubAccessAuthority();
-    vi.spyOn(authority, "listWorkflowGrants").mockResolvedValue(
+    vi.spyOn(authority.grants, "listWorkflowGrants").mockResolvedValue(
       new Map([
         [
           "database-id",
