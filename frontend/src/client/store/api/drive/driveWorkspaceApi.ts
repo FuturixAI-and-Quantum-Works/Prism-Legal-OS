@@ -3,29 +3,7 @@ import { apiUrl } from '../../../lib/apiTransport'
 import { streamSSE, type StreamOutcome } from '../../../lib/sseTransport'
 import { baseApi } from '../baseApi'
 
-export type {
-  ChatIdEvent as WorkspaceChatIdEvent,
-  ChatStreamEvent as WorkspaceChatStreamEvent,
-  DocCreatedEvent as WorkspaceDocCreatedEvent,
-  DocCreatedStartEvent as WorkspaceDocCreatedStartEvent,
-  DocEditedEvent as WorkspaceDocEditedEvent,
-  DocEditedStartEvent as WorkspaceDocEditedStartEvent,
-  DocFindEvent as WorkspaceDocFindEvent,
-  DocFindStartEvent as WorkspaceDocFindStartEvent,
-  DocReadEvent as WorkspaceDocReadEvent,
-  DocReadStartEvent as WorkspaceDocReadStartEvent,
-  DocReplicatedEvent as WorkspaceDocReplicatedEvent,
-  DocReplicateStartEvent as WorkspaceDocReplicateStartEvent,
-  DoneEvent as WorkspaceChatDoneEvent,
-  ErrorEvent as WorkspaceChatErrorEvent,
-  ReasoningBlockEndEvent as WorkspaceReasoningBlockEndEvent,
-  ReasoningDeltaEvent as WorkspaceReasoningDeltaEvent,
-  SourceResultsEvent as WorkspaceSourceResultsEvent,
-  TemplateWizardStartEvent as WorkspaceTemplateWizardStartEvent,
-  TextDeltaEvent as WorkspaceContentDeltaEvent,
-  ToolCallEvent as WorkspaceToolCallEvent,
-  ToolResultEvent as WorkspaceToolResultEvent,
-} from '@prism/protocol'
+export type { ChatStreamEvent as WorkspaceChatStreamEvent } from '@prism/protocol'
 
 export interface WorkspaceCollaborator {
   id: string

@@ -42,13 +42,6 @@ export async function deleteFile(key: string): Promise<void> {
   await objectStore.delete(parseObjectRef(key));
 }
 
-export async function copyFile(sourceKey: string, destinationKey: string): Promise<void> {
-  await objectStore.copy({
-    sourceRef: parseObjectRef(sourceKey),
-    destinationRef: parseObjectRef(destinationKey),
-  });
-}
-
 export async function getSignedUrl(
   key: string,
   expiresIn = 3600,
