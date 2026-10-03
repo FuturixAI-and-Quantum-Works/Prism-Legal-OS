@@ -11,11 +11,7 @@ const effects = vi.hoisted(() => ({
 vi.mock("../../src/modules/documents/documents.permissions.service.js", async (load) => {
   const actual =
     await load<typeof import("../../src/modules/documents/documents.permissions.service.js")>();
-  return {
-    ...actual,
-    assertDocumentActionAllowed: effects.assertAllowed,
-    documentPermissionsService: { assertAllowed: effects.assertAllowed },
-  };
+  return { ...actual, assertDocumentActionAllowed: effects.assertAllowed };
 });
 
 vi.mock("../../src/modules/documents/documents.activity.service.js", async (load) => {
@@ -27,11 +23,7 @@ vi.mock("../../src/modules/documents/documents.activity.service.js", async (load
 vi.mock("../../src/modules/documents/documents.notifications.service.js", async (load) => {
   const actual =
     await load<typeof import("../../src/modules/documents/documents.notifications.service.js")>();
-  return {
-    ...actual,
-    recordAndSendDocumentEmail: effects.sendEmail,
-    documentNotificationsService: { send: effects.sendEmail },
-  };
+  return { ...actual, recordAndSendDocumentEmail: effects.sendEmail };
 });
 
 const documentId = "00000000-0000-4000-8000-000000000002";
@@ -41,13 +33,28 @@ const actor = {
 };
 const denied = Object.assign(new Error("Access denied"), { statusCode: 403 });
 
-function service() {
-  return new DocumentGovernanceService(new DocumentGovernanceRepository());
+const createdAt = new Date("2026-01-01T00:00:00.000Z");
+
+function memberRow(id: string, role: "DRAFTER" | "REVIEWER") {
+  return {
+    id,
+    documentId,
+    userId: null,
+    email: null,
+    role,
+    assignedByUserId: actor.userId,
+    createdAt,
+    updatedAt: createdAt,
+  };
+}
+
+function setup() {
+  const repository = new DocumentGovernanceRepository();
+  return { repository, service: new DocumentGovernanceService(repository) };
 }
 
 describe("document members", () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
     vi.clearAllMocks();
     effects.assertAllowed.mockResolvedValue(undefined);
     effects.recordActivity.mockResolvedValue(undefined);
@@ -55,12 +62,22 @@ describe("document members", () => {
   });
 
   it("lists members after checking the role-assignment permission", async () => {
-    const members = [{ id: "member-1", email: "a@example.com", role: "REVIEWER" }];
-    vi.spyOn(DocumentGovernanceRepository.prototype, "listMembers").mockResolvedValue(
-      members as never,
-    );
+    const { repository, service } = setup();
+    const members = [
+      {
+        id: "member-1",
+        document_id: documentId,
+        user_id: null,
+        email: "a@example.com",
+        role: "REVIEWER" as const,
+        assigned_by_user_id: actor.userId,
+        created_at: createdAt,
+        updated_at: createdAt,
+      },
+    ];
+    vi.spyOn(repository, "listMembers").mockResolvedValue(members);
 
-    await expect(service().listMembers(actor, documentId)).resolves.toEqual(members);
+    await expect(service.listMembers(actor, documentId)).resolves.toEqual(members);
     expect(effects.assertAllowed).toHaveBeenCalledWith(
       documentId,
       actor.userId,
@@ -70,25 +87,27 @@ describe("document members", () => {
   });
 
   it("rejects listing without permission and reads nothing", async () => {
-    const listMembers = vi.spyOn(DocumentGovernanceRepository.prototype, "listMembers");
+    const { repository, service } = setup();
+    const listMembers = vi.spyOn(repository, "listMembers");
     effects.assertAllowed.mockRejectedValue(denied);
 
-    await expect(service().listMembers(actor, documentId)).rejects.toBe(denied);
+    await expect(service.listMembers(actor, documentId)).rejects.toBe(denied);
     expect(listMembers).not.toHaveBeenCalled();
   });
 
   it("assigns a member by normalised email, records activity, and notifies them", async () => {
+    const { repository, service } = setup();
     const assignMember = vi
-      .spyOn(DocumentGovernanceRepository.prototype, "assignMember")
-      .mockResolvedValue({ id: "member-1" } as never);
+      .spyOn(repository, "assignMember")
+      .mockResolvedValue(memberRow("member-1", "REVIEWER"));
 
     await expect(
-      service().assignMember(actor, documentId, {
+      service.assignMember(actor, documentId, {
         email: "  New.Member@Example.COM ",
         targetUserId: "  ",
         role: "REVIEWER",
       }),
-    ).resolves.toEqual({ id: "member-1" });
+    ).resolves.toEqual(memberRow("member-1", "REVIEWER"));
 
     expect(effects.assertAllowed).toHaveBeenCalledWith(
       documentId,
@@ -121,11 +140,11 @@ describe("document members", () => {
   });
 
   it("assigns a member by user id without sending an email", async () => {
-    vi.spyOn(DocumentGovernanceRepository.prototype, "assignMember").mockResolvedValue({
-      id: "member-2",
-    } as never);
+    const { repository, service } = setup();
+    vi.spyOn(repository, "assignMember").mockResolvedValue(memberRow("member-2", "DRAFTER"));
 
-    await service().assignMember(actor, documentId, {
+    await service.assignMember(actor, documentId, {
+      email: null,
       targetUserId: " user-9 ",
       role: "DRAFTER",
     });
@@ -141,21 +160,31 @@ describe("document members", () => {
   });
 
   it("rejects an assignment with neither email nor user id", async () => {
-    const assignMember = vi.spyOn(DocumentGovernanceRepository.prototype, "assignMember");
+    const { repository, service } = setup();
+    const assignMember = vi.spyOn(repository, "assignMember");
 
     await expect(
-      service().assignMember(actor, documentId, { email: " ", targetUserId: null, role: "VIEWER" }),
+      service.assignMember(actor, documentId, {
+        email: " ",
+        targetUserId: null,
+        role: "APPROVER",
+      }),
     ).rejects.toMatchObject({ statusCode: 400, message: "email or user_id is required" });
     expect(assignMember).not.toHaveBeenCalled();
     expect(effects.recordActivity).not.toHaveBeenCalled();
   });
 
   it("rejects an assignment without permission and writes nothing", async () => {
-    const assignMember = vi.spyOn(DocumentGovernanceRepository.prototype, "assignMember");
+    const { repository, service } = setup();
+    const assignMember = vi.spyOn(repository, "assignMember");
     effects.assertAllowed.mockRejectedValue(denied);
 
     await expect(
-      service().assignMember(actor, documentId, { email: "a@example.com", role: "VIEWER" }),
+      service.assignMember(actor, documentId, {
+        email: "a@example.com",
+        targetUserId: null,
+        role: "APPROVER",
+      }),
     ).rejects.toBe(denied);
     expect(assignMember).not.toHaveBeenCalled();
     expect(effects.recordActivity).not.toHaveBeenCalled();
@@ -163,11 +192,12 @@ describe("document members", () => {
   });
 
   it("revokes a member and records the revoked role", async () => {
+    const { repository, service } = setup();
     const revokeMember = vi
-      .spyOn(DocumentGovernanceRepository.prototype, "revokeMember")
-      .mockResolvedValue({ id: "member-1", email: "a@example.com", role: "REVIEWER" } as never);
+      .spyOn(repository, "revokeMember")
+      .mockResolvedValue({ id: "member-1", email: "a@example.com", role: "REVIEWER" });
 
-    await expect(service().revokeMember(actor, documentId, "member-1")).resolves.toBeUndefined();
+    await expect(service.revokeMember(actor, documentId, "member-1")).resolves.toBeUndefined();
 
     expect(revokeMember).toHaveBeenCalledWith(documentId, "member-1");
     expect(effects.recordActivity).toHaveBeenCalledWith(
@@ -180,11 +210,10 @@ describe("document members", () => {
   });
 
   it("returns 404 when revoking an unknown member", async () => {
-    vi.spyOn(DocumentGovernanceRepository.prototype, "revokeMember").mockResolvedValue(
-      undefined as never,
-    );
+    const { repository, service } = setup();
+    vi.spyOn(repository, "revokeMember").mockResolvedValue(null);
 
-    await expect(service().revokeMember(actor, documentId, "missing")).rejects.toMatchObject({
+    await expect(service.revokeMember(actor, documentId, "missing")).rejects.toMatchObject({
       statusCode: 404,
       message: "Document member not found",
     });
@@ -192,10 +221,11 @@ describe("document members", () => {
   });
 
   it("rejects a revoke without permission and deletes nothing", async () => {
-    const revokeMember = vi.spyOn(DocumentGovernanceRepository.prototype, "revokeMember");
+    const { repository, service } = setup();
+    const revokeMember = vi.spyOn(repository, "revokeMember");
     effects.assertAllowed.mockRejectedValue(denied);
 
-    await expect(service().revokeMember(actor, documentId, "member-1")).rejects.toBe(denied);
+    await expect(service.revokeMember(actor, documentId, "member-1")).rejects.toBe(denied);
     expect(revokeMember).not.toHaveBeenCalled();
   });
 });
