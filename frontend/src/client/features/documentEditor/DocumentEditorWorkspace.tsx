@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Editor } from '@tiptap/core'
+import { HomeIcon, LibraryIcon, ProjectIcon, ProjectsIcon } from '../../components/icons'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   useAcceptDocumentEditMutation,
@@ -40,9 +41,16 @@ import {
   getDocumentStatusConfig,
   getUpdatedTimeDisplay,
   getWorkspaceActivePage,
+  getWorkspaceBreadcrumbs,
   type WorkspaceLocationState,
 } from './workspaceViewModel'
-import { buildWorkspaceBreadcrumbs } from './WorkspaceBreadcrumbs'
+
+const breadcrumbIcons = {
+  home: <HomeIcon />,
+  library: <LibraryIcon />,
+  projects: <ProjectsIcon />,
+  project: <ProjectIcon />,
+}
 
 interface DocumentEditorProps {
   documentName?: string
@@ -249,10 +257,13 @@ export default function DocumentEditorWorkspace({ documentName }: DocumentEditor
     documentData?.status ?? undefined,
     lifecycleState === 'DRAFT' && !!latestRejectionComment,
   )
-  const breadcrumbs = buildWorkspaceBreadcrumbs(
+  const breadcrumbs = getWorkspaceBreadcrumbs(
     locationState,
     documentData?.filename || documentName || 'New Document',
-  )
+  ).map(({ icon, ...breadcrumb }) => ({
+    ...breadcrumb,
+    icon: icon ? breadcrumbIcons[icon] : undefined,
+  }))
 
   return (
     <DocumentEditorWorkspaceLayout

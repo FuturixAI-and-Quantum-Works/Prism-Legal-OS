@@ -190,7 +190,6 @@ describe('document API module contract', () => {
   })
 
   it('keeps one API instance and every focused hook export', () => {
-    expect(documentsPublic.documentsApi).toBe(baseApi)
     expect(documentCore.documentCoreApi).toBe(baseApi)
     expect(documentContent.documentContentApi).toBe(baseApi)
     expect(documentVersions.documentVersionsApi).toBe(baseApi)

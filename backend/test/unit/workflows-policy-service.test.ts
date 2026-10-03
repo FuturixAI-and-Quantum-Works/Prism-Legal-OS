@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import { RulebookDraftService } from "../../src/modules/workflows/rulebook.service.js";
-import { RulebookAuthorizationPolicy } from "../../src/modules/workflows/rulebook.policy.js";
 import type { WorkflowsRepository } from "../../src/modules/workflows/workflows.repository.js";
 import { WorkflowsService } from "../../src/modules/workflows/workflows.service.js";
 import { WorkflowError, type Workflow } from "../../src/modules/workflows/workflows.types.js";
@@ -168,7 +167,7 @@ describe("workflow policies and services", () => {
         fileType: "docx",
       })),
     };
-    const access = new RulebookAuthorizationPolicy(async (ids) => ids);
+    const access = { canReadDocument: async () => true };
     const content = {
       extract: vi.fn(async () => "Credit agreement text"),
       read: vi.fn(),
@@ -206,5 +205,27 @@ describe("workflow policies and services", () => {
     expect(result.columns_config).toHaveLength(1);
     expect(repository.findSampleDocument).toHaveBeenCalledOnce();
     expect(ai.complete).toHaveBeenCalledOnce();
+  });
+
+  it("hides a rulebook sample document the actor cannot read", async () => {
+    const repository = { findSampleDocument: vi.fn() };
+    const ai = { complete: vi.fn() };
+    const service = new RulebookDraftService(
+      repository,
+      { canReadDocument: async () => false },
+      { extract: vi.fn(), read: vi.fn() },
+      ai,
+    );
+
+    await expect(
+      service.generate(actor, {
+        documentType: "Credit agreement",
+        sampleDocumentId: "document-1",
+        extraRequirements: "",
+        count: 12,
+      }),
+    ).rejects.toEqual(new WorkflowError(404, "Sample document not found"));
+    expect(repository.findSampleDocument).not.toHaveBeenCalled();
+    expect(ai.complete).not.toHaveBeenCalled();
   });
 });

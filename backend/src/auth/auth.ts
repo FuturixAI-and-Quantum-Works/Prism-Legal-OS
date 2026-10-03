@@ -12,29 +12,29 @@ import {
   verifications,
 } from "../db/index.js";
 import type { Database } from "../db/index.js";
-import type { SendOtpEmailResult } from "../lib/email.js";
+import { emailEventFields, type SendWithRetryResult } from "../lib/email.js";
 import { createOtpDeliveryCallback } from "./otpDelivery.js";
 
 export type AuthDependencies = Readonly<{
   database: Database;
-  sendOtpEmail: (email: string, otp: string) => Promise<SendOtpEmailResult>;
+  sendOtpEmail: (email: string, otp: string) => Promise<SendWithRetryResult>;
 }>;
 
 export function createAuth(config: AppConfig, dependencies: AuthDependencies) {
   const sendVerificationOTP = createOtpDeliveryCallback(
     dependencies.sendOtpEmail,
     async (delivery, result) => {
+      const { suppressed, ...record } = emailEventFields(result);
       await dependencies.database.insert(authEmailEvents).values({
         recipient: delivery.email.toLowerCase(),
         template: "otp",
         triggerType: delivery.type,
         status: result.status,
-        resendMessageId: result.messageId ?? null,
-        error: result.error ?? null,
-        retryCount: result.attempts ?? 1,
+        ...record,
+        retryCount: result.attempts,
         metadata: {
           email_delivered: result.status === "sent",
-          suppressed: Boolean(result.suppressed),
+          suppressed,
         },
       });
     },

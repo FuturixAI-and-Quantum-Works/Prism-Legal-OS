@@ -1,9 +1,0 @@
-{
-  "$schema": "https://unpkg.com/knip@6/schema.json",
-  "ignoreUnresolved": ["./src/test/setup.ts"],
-  "workspaces": {
-    "frontend": {
-      "entry": ["src/test/setup.ts"]
-    }
-  }
-}

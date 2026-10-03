@@ -1,11 +1,10 @@
 import { Router } from "express";
 import { requireAuth, requireSession } from "../../middleware/auth.js";
-import { createUsersController } from "./users.controller.js";
-import type { UsersService } from "./users.service.js";
+import { createUsersController, type UsersControllerDependencies } from "./users.controller.js";
 
-export function createUsersRouter(service: UsersService): Router {
+export function createUsersRouter(dependencies: UsersControllerDependencies): Router {
   const router = Router();
-  const controller = createUsersController(service);
+  const controller = createUsersController(dependencies);
 
   router.put("/onboarding", requireSession, controller.completeOnboarding);
   router.post("/profile", requireSession, controller.ensureProfile);

@@ -1,12 +1,26 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   configureEmail,
+  emailEventFields,
+  sendRawEmail,
   sendTemplateEmail,
   sendTemplateEmailWithRetry,
 } from "../../src/lib/email.js";
 import { ConsoleMailProvider } from "../../src/mail/consoleMailProvider.js";
-import { ResendMailProvider, type ResendTransport } from "../../src/mail/resendMailProvider.js";
+import {
+  ResendMailProvider,
+  createResendTransport,
+  type ResendTransport,
+} from "../../src/mail/resendMailProvider.js";
 import type { MailProvider, MailSendRequest } from "../../src/mail/types.js";
+
+const resendSend = vi.hoisted(() => vi.fn());
+
+vi.mock("resend", () => ({
+  Resend: class {
+    emails = { send: resendSend };
+  },
+}));
 
 const request: MailSendRequest = {
   idempotencyKey: "mail-123",
@@ -100,6 +114,120 @@ describe("ResendMailProvider", () => {
   });
 });
 
+describe("email attachments", () => {
+  it("delivers byte attachments to Resend as Buffers and passes strings through", async () => {
+    resendSend.mockResolvedValue({ data: { id: "resend-attachments" }, error: null });
+    configureEmail(
+      {
+        mail: { kind: "resend", apiKey: "test", fromEmail: "sender@example.com" },
+        trustedActionOrigins: [],
+      },
+      new ResendMailProvider(createResendTransport("test"), 100),
+    );
+
+    await expect(
+      sendRawEmail({
+        to: "recipient@example.com",
+        subject: "Attachments",
+        text: "See attached",
+        idempotencyKey: "attachments-1",
+        attachments: [
+          {
+            filename: "bytes.bin",
+            content: new Uint8Array([1, 2, 3]),
+            contentType: "application/octet-stream",
+          },
+          { filename: "note.txt", content: "plain" },
+        ],
+      }),
+    ).resolves.toMatchObject({ status: "sent", messageId: "resend-attachments" });
+
+    const [payload, options] = resendSend.mock.lastCall ?? [];
+    expect(options).toEqual({ idempotencyKey: "attachments-1" });
+    const [bytes, note] = payload.attachments;
+    expect(Buffer.isBuffer(bytes.content)).toBe(true);
+    expect([...bytes.content]).toEqual([1, 2, 3]);
+    expect(bytes).toMatchObject({
+      filename: "bytes.bin",
+      contentType: "application/octet-stream",
+    });
+    expect(note).toEqual({ filename: "note.txt", content: "plain", contentType: undefined });
+  });
+
+  it("omits attachments from the Resend payload when none are given", async () => {
+    resendSend.mockResolvedValue({ data: { id: "resend-empty" }, error: null });
+    configureEmail(
+      {
+        mail: { kind: "resend", apiKey: "test", fromEmail: "sender@example.com" },
+        trustedActionOrigins: [],
+      },
+      new ResendMailProvider(createResendTransport("test"), 100),
+    );
+
+    await sendRawEmail({
+      to: "recipient@example.com",
+      subject: "No attachments",
+      text: "Body",
+      attachments: [],
+    });
+
+    expect(resendSend.mock.lastCall?.[0].attachments).toBeUndefined();
+  });
+});
+
+describe("email event fields", () => {
+  it.each([
+    [
+      { status: "sent", messageId: "resend-1" },
+      { resendMessageId: "resend-1", error: null, suppressed: false },
+    ],
+    [{ status: "sent" }, { resendMessageId: null, error: null, suppressed: false }],
+    [
+      { status: "suppressed", reason: "Mail delivery is suppressed" },
+      { resendMessageId: null, error: "Mail delivery is suppressed", suppressed: true },
+    ],
+    [
+      {
+        status: "failed",
+        failure: { kind: "transient", retryMode: "provider-idempotent", message: "busy" },
+      },
+      { resendMessageId: null, error: "busy", suppressed: false },
+    ],
+  ] as const)("records %o", (result, expected) => {
+    expect(emailEventFields(result)).toEqual(expected);
+  });
+});
+
+describe("email sender validation", () => {
+  it("rejects an invalid sender as a permanent failure without calling the provider", async () => {
+    const send = vi.fn<MailProvider["send"]>();
+    configureEmail(
+      {
+        mail: { kind: "resend", apiKey: "test", fromEmail: "sender@example.com" },
+        trustedActionOrigins: [],
+      },
+      { send, health: async () => ({ status: "configured", provider: "resend" }) },
+    );
+
+    await expect(
+      sendRawEmail({
+        to: "recipient@example.com",
+        from: "not-an-address",
+        subject: "Test",
+        text: "Test",
+      }),
+    ).resolves.toEqual({
+      status: "failed",
+      failure: {
+        kind: "permanent",
+        retryMode: "never",
+        message: "MAIL_FROM must be a valid email address",
+      },
+    });
+    expect(send).not.toHaveBeenCalled();
+  });
+});
+
 describe("mail retry policy", () => {
   it("retries provider-idempotent transient failures", async () => {
     const send = vi
@@ -186,9 +314,9 @@ describe("email action links", () => {
         template: "document-invitation",
         data: { actionUrl: "http://untrusted.example/documents/123" },
       }),
-    ).resolves.toMatchObject({
+    ).resolves.toEqual({
       status: "suppressed",
-      suppressed: true,
+      reason: "Mail delivery is suppressed",
     });
     expect(info).toHaveBeenCalledWith("[mail] suppressed");
     expect(warning).toHaveBeenCalledWith("[email] delivery_suppressed");
@@ -256,8 +384,7 @@ describe("email action links", () => {
       }),
     ).resolves.toMatchObject({
       status: "failed",
-      failureKind: "permanent",
-      retryMode: "never",
+      failure: { kind: "permanent", retryMode: "never" },
     });
     expect(send).not.toHaveBeenCalled();
   });

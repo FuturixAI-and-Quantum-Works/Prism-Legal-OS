@@ -149,5 +149,3 @@ export function useDocumentFiles({ documentId, projectId, workspaceId }: UseDocu
     upload,
   }
 }
-
-export type DocumentFilesModel = ReturnType<typeof useDocumentFiles>
