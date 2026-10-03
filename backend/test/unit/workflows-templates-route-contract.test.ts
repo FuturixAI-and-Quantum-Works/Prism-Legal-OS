@@ -4,14 +4,15 @@ import express from "express";
 import swaggerJsdoc from "swagger-jsdoc";
 import ts from "typescript";
 import { describe, expect, it, vi } from "vitest";
-import { createRulebookRouter } from "../../src/modules/workflows/rulebook.routes.js";
-import { RulebookDraftService } from "../../src/modules/workflows/rulebook.service.js";
 import { createTemplatesController } from "../../src/modules/templates/templates.controller.js";
 import { createTemplatesRouter } from "../../src/modules/templates/templates.routes.js";
 import { TemplatesService } from "../../src/modules/templates/templates.service.js";
 import { TemplateError } from "../../src/modules/templates/templates.types.js";
-import { createWorkflowsRouter } from "../../src/modules/workflows/workflows.routes.js";
-import { WorkflowsService } from "../../src/modules/workflows/workflows.service.js";
+import {
+  createRulebookRouter,
+  createWorkflowsRouter,
+} from "../../src/modules/workflows/workflows.routes.js";
+import { recordingService, routeParams, routeTable, type ServiceCall } from "./route-table.js";
 
 function routes(router: express.Router): Set<string> {
   const stack = Reflect.get(router, "stack");
@@ -31,27 +32,50 @@ function routes(router: express.Router): Set<string> {
 }
 
 describe("workflow and template route contracts", () => {
-  it("preserves workflow, rulebook, and template endpoints", () => {
-    const workflowService: WorkflowsService = Object.create(WorkflowsService.prototype);
-    const rulebookService: RulebookDraftService = Object.create(RulebookDraftService.prototype);
-    const templateService: TemplatesService = Object.create(TemplatesService.prototype);
-    expect(routes(createWorkflowsRouter(workflowService))).toEqual(
-      new Set([
-        "GET /",
-        "POST /",
-        "GET /hidden",
-        "POST /hidden",
-        "DELETE /hidden/:workflowId",
-        "GET /:workflowId",
-        "PUT /:workflowId",
-        "PATCH /:workflowId",
-        "DELETE /:workflowId",
-        "GET /:workflowId/shares",
-        "POST /:workflowId/share",
-        "DELETE /:workflowId/shares/:shareId",
-      ]),
+  it("pins every workflow and rulebook route's method, path, middleware, and handler", async () => {
+    const calls: ServiceCall[] = [];
+    const workflows = await routeTable(
+      createWorkflowsRouter(recordingService("workflows", calls)),
+      calls,
+      {
+        "POST /": { title: "NDA review", type: "assistant" },
+        "POST /hidden": { workflow_id: routeParams.workflowId },
+        "POST /:workflowId/share": { emails: ["invitee@example.com"] },
+      },
     );
-    expect(routes(createRulebookRouter(rulebookService))).toEqual(new Set(["POST /generate"]));
+    const rulebook = await routeTable(
+      createRulebookRouter(recordingService("rulebook", calls)),
+      calls,
+      {
+        "POST /generate": {
+          document_type: "Non-disclosure agreement",
+          sample_document_id: routeParams.documentId,
+          extra_requirements: "Mutual obligations",
+          count: 8,
+        },
+      },
+    );
+    expect(workflows).toEqual([
+      "GET / requireAuth -> workflows.list(actor, undefined)",
+      'POST / requireAuth -> workflows.create(actor, {"title":"NDA review","type":"assistant"})',
+      "GET /hidden requireAuth -> workflows.listHidden(actor)",
+      'POST /hidden requireAuth -> workflows.hide(actor, ":workflowId")',
+      'DELETE /hidden/:workflowId requireAuth -> workflows.unhide(actor, ":workflowId")',
+      'GET /:workflowId requireAuth -> workflows.get(actor, ":workflowId")',
+      'PUT /:workflowId requireAuth -> workflows.update(actor, ":workflowId", {})',
+      'PATCH /:workflowId requireAuth -> workflows.update(actor, ":workflowId", {})',
+      'DELETE /:workflowId requireAuth -> workflows.remove(actor, ":workflowId")',
+      'GET /:workflowId/shares requireAuth -> workflows.listShares(actor, ":workflowId")',
+      'POST /:workflowId/share requireAuth -> workflows.share(actor, ":workflowId", ["invitee@example.com"], false)',
+      'DELETE /:workflowId/shares/:shareId requireAuth -> workflows.removeShare(actor, ":workflowId", ":shareId")',
+    ]);
+    expect(rulebook).toEqual([
+      'POST /generate requireAuth -> rulebook.generate(actor, {"documentType":"Non-disclosure agreement","sampleDocumentId":":documentId","extraRequirements":"Mutual obligations","count":8})',
+    ]);
+  });
+
+  it("preserves template endpoints", () => {
+    const templateService: TemplatesService = Object.create(TemplatesService.prototype);
     expect(routes(createTemplatesRouter(templateService))).toEqual(
       new Set([
         "GET /",
@@ -69,7 +93,6 @@ describe("workflow and template route contracts", () => {
     for (const relativePath of [
       "../../src/modules/workflows/workflows.routes.ts",
       "../../src/modules/workflows/workflows.controller.ts",
-      "../../src/modules/workflows/rulebook.routes.ts",
       "../../src/modules/workflows/rulebook.controller.ts",
       "../../src/modules/templates/templates.routes.ts",
       "../../src/modules/templates/templates.controller.ts",
