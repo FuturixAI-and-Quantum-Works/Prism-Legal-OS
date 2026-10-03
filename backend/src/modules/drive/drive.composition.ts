@@ -31,7 +31,7 @@ import {
   DriveInvitationsService,
   type DriveInvitationGateway,
 } from "./drive.invitations.service.js";
-import { DriveAuthorizationPolicy } from "./drive.policy.js";
+import { DriveAuthorizationPolicy, DriveFileAccessPolicy } from "./drive.policy.js";
 import { DrizzleDriveStorageOperationRepository } from "./drive.reconciliation.js";
 import { createDriveRouter } from "./drive.routes.js";
 import { DriveError } from "./drive.types.js";
@@ -102,18 +102,29 @@ const notifications: DriveMemberNotifications = {
   },
 };
 
-function createProductionDriveServices(objectStore: ObjectStore): DriveServices {
+export function createProductionDriveCore() {
   const workspaces = new DrizzleDriveWorkspaceRepository();
   const folders = new DrizzleDriveFolderRepository();
   const files = new DrizzleDriveFileRepository(db, folders);
+  const policy = new DriveAuthorizationPolicy({ workspaces, files, folders }, accessAuthority);
+  return {
+    workspaces,
+    folders,
+    files,
+    policy,
+    filePolicy: new DriveFileAccessPolicy(policy),
+    activity: new DrizzleDriveActivityRepository(),
+  };
+}
+
+function createProductionDriveServices(objectStore: ObjectStore): DriveServices {
+  const { workspaces, folders, files, policy, activity } = createProductionDriveCore();
   const accessRequestRepository = new DrizzleDriveAccessRequestRepository();
   const accessRequests = new DriveAccessRequestsService(
     accessRequestRepository,
     accessAuthority,
     accessRequestEvents,
   );
-  const policy = new DriveAuthorizationPolicy({ workspaces, files, folders }, accessAuthority);
-  const activity = new DrizzleDriveActivityRepository();
   const storageOperations = new DrizzleDriveStorageOperationRepository(db);
   return {
     files: new DriveFilesService(files, policy, activity, objectStore, storageOperations, {

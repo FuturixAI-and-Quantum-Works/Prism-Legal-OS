@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { DriveFileAccessPolicy } from "../../src/modules/drive/drive.access.js";
-import { DriveAuthorizationPolicy } from "../../src/modules/drive/drive.policy.js";
+import {
+  DriveAuthorizationPolicy,
+  DriveFileAccessPolicy,
+} from "../../src/modules/drive/drive.policy.js";
 import {
   DriveError,
   type DriveFile,

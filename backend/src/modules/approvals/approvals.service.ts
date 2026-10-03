@@ -8,7 +8,7 @@ import {
 } from "../../lib/notifications.js";
 import { accessAuthority } from "../access/access.composition.js";
 import { recordDocumentActivity } from "../documents/documents.activity.service.js";
-import { createProductionDriveAccess } from "../drive/drive.access.js";
+import { createProductionDriveCore } from "../drive/drive.composition.js";
 import type { DriveActivityWriter } from "../drive/drive.activity.js";
 import type { DriveFileAuthorizationPolicy } from "../drive/drive.policy.js";
 import type { DriveFileReader } from "../drive/drive.repository.js";
@@ -684,7 +684,7 @@ export class ApprovalsService {
   }
 }
 
-const drive = createProductionDriveAccess();
+const drive = createProductionDriveCore();
 export const approvalsService = new ApprovalsService(
   new ApprovalsRepository(),
   drive.filePolicy,
