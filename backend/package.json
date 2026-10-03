@@ -8,7 +8,6 @@
   },
   "scripts": {
     "build": "tsc",
-    "check:esm-imports": "node ../scripts/convert-backend-esm-specifiers.mjs --check",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "npm run build && node dist/scripts/migrate.js",
     "db:push": "drizzle-kit push",

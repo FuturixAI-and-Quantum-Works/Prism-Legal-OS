@@ -53,7 +53,6 @@ vi.mock('../../store/api/tabularReviewApi', () => ({
   cancelTabularRegenerate: mocks.cancelRegenerate,
   hasTabularGenerateRun: () => mocks.hasGenerateRun,
   hasTabularRegenerateRun: () => mocks.hasRegenerateRun,
-  streamTabularChat: vi.fn(),
   streamTabularGenerate: mocks.streamGenerate,
   streamTabularRegenerate: mocks.streamRegenerate,
   useClearTabularCellsMutation: () => [mocks.clearCells, { isLoading: false }],

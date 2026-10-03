@@ -1,4 +1,4 @@
-import type { AiModelRecord, AiRuntimeContext, AiTask, Provider } from "./types.js";
+import type { AiModelRecord, AiRuntimeContext, AiTask } from "./types.js";
 
 export const DEFAULT_MAIN_MODEL = "gemini-3.1-pro-preview";
 export const DEFAULT_TITLE_MODEL = "gemini-3.1-pro-preview";
@@ -103,10 +103,6 @@ export function modelForId(modelId: string, runtime?: AiRuntimeContext): AiModel
   const model = runtime?.models.find(({ id }) => id === modelId) ?? MODEL_REGISTRY.get(modelId);
   if (!model) throw new Error(`Unknown model id: ${modelId}`);
   return model;
-}
-
-export function providerForModel(modelId: string): Provider {
-  return modelForId(modelId).provider;
 }
 
 export function resolveModel(

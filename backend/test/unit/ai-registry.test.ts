@@ -5,12 +5,7 @@ import {
   isProhibitedProviderAddress,
   validateCustomProviderEndpoint,
 } from "../../src/lib/llm/safeProviderFetch.js";
-import {
-  AI_MODEL_CATALOG,
-  assertModelSupports,
-  modelForId,
-  providerForModel,
-} from "../../src/lib/llm/models.js";
+import { AI_MODEL_CATALOG, assertModelSupports, modelForId } from "../../src/lib/llm/models.js";
 import { providerConnectionDto } from "../../src/lib/aiRegistry.js";
 import { resolveAiModel } from "../../src/lib/llm/providerRegistry.js";
 import type { AiRuntimeContext } from "../../src/lib/llm/types.js";
@@ -140,8 +135,8 @@ describe("custom provider network policy", () => {
 
 describe("model registry", () => {
   it("uses exact catalog records instead of model-name prefixes", () => {
-    expect(providerForModel("gpt-5.4-mini")).toBe("openai");
-    expect(() => providerForModel("gpt-unregistered")).toThrow(/Unknown model id/);
+    expect(modelForId("gpt-5.4-mini").provider).toBe("openai");
+    expect(() => modelForId("gpt-unregistered")).toThrow(/Unknown model id/);
     expect(new Set(AI_MODEL_CATALOG.map(({ id }) => id)).size).toBe(AI_MODEL_CATALOG.length);
   });
 
