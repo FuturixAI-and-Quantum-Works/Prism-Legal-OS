@@ -74,6 +74,9 @@
     "vitest": "^4.1.11"
   },
   "overrides": {
+    "@qdrant/js-client-rest": {
+      "undici": "7.30.0"
+    },
     "esbuild": "0.25.12",
     "qs": "6.16.0"
   }
