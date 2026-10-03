@@ -11,12 +11,8 @@ import {
 } from "./documents.permissions.service.js";
 import { buildPreviewSummary } from "../../lib/previewSummary.js";
 import { checksumBuffer, queueDocumentVersionIndex } from "../retrieval/retrieval.indexing.js";
-import {
-  buildContentDisposition,
-  deleteFile,
-  downloadFile,
-  getSignedUrl,
-} from "../../lib/storage.js";
+import { deleteFile, downloadFile, getSignedUrl } from "../../lib/storage.js";
+import { buildContentDisposition } from "../../storage/contentDisposition.js";
 import { renderDocxPreviewHtml } from "../../lib/docxTemplateAnalyzer.js";
 import { extractTrackedChangeIds } from "../../lib/docxTrackedChangesXml.js";
 import { createInitialDocxBuffer } from "./documents.docx.js";

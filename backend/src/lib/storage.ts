@@ -1,10 +1,4 @@
 import type { AppConfig } from "../config.js";
-import {
-  buildContentDisposition,
-  encodeRFC5987,
-  normalizeDownloadFilename,
-  sanitizeDispositionFilename,
-} from "../storage/contentDisposition.js";
 import { createObjectStore } from "../storage/createObjectStore.js";
 import { DisabledObjectStore } from "../storage/disabledObjectStore.js";
 import {
@@ -73,13 +67,6 @@ export function closeStorage(): void {
   objectStore.close();
   storageEnabled = false;
 }
-
-export {
-  buildContentDisposition,
-  encodeRFC5987,
-  normalizeDownloadFilename,
-  sanitizeDispositionFilename,
-};
 
 export function storageKey(userId: string, docId: string, filename: string): ObjectRef {
   return parseObjectRef(`documents/${userId}/${docId}/source${storageExtension(filename, ".bin")}`);
