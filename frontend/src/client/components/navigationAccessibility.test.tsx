@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { axe } from 'jest-axe'
 import { describe, expect, it, vi } from 'vitest'
-import Sidebar from './Sidebar'
+import { SidebarNavigation } from '../features/navigation/SidebarNavigation'
 import Topbar from './Topbar'
 
 vi.mock('../hooks/useAuth', () => ({
@@ -24,7 +24,7 @@ describe('sidebar accessibility', () => {
     const onLibraryClick = vi.fn()
     const { container } = render(
       <MemoryRouter>
-        <Sidebar collapsed={false} activePage="home" onLibraryClick={onLibraryClick} />
+        <SidebarNavigation collapsed={false} activePage="home" onLibraryClick={onLibraryClick} />
       </MemoryRouter>,
     )
 

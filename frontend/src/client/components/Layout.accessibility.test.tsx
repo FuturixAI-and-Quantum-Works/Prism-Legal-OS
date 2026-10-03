@@ -9,8 +9,8 @@ vi.mock('../hooks', () => ({
   useResponsive: () => ({ isMobile: true, isTablet: false, isDesktop: false }),
 }))
 
-vi.mock('./Sidebar', () => ({
-  default: ({ onLibraryClick }: { onLibraryClick: () => void }) => (
+vi.mock('../features/navigation/SidebarNavigation', () => ({
+  SidebarNavigation: ({ onLibraryClick }: { onLibraryClick: () => void }) => (
     <nav aria-label="Primary">
       <button type="button" onClick={onLibraryClick}>
         Open library

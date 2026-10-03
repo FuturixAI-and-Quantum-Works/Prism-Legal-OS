@@ -22,6 +22,4 @@ export interface SidebarNavigationProps {
   activePage: string
   collapsed: boolean
   onLibraryClick: () => void
-  onNavigate: (path: string) => void
-  pathname: string
 }

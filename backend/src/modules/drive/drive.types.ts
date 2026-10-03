@@ -6,10 +6,6 @@ export type WorkspaceRole = AccessRole;
 export type WorkspaceMemberRole = ShareRole;
 export type DriveAccessLevel = "read" | "write" | "admin" | "owner";
 
-export type DriveScope =
-  | Readonly<{ kind: "personal"; ownerId: string }>
-  | Readonly<{ kind: "workspace"; workspaceId: string }>;
-
 export type DriveFile = Readonly<{
   id: string;
   userId: string;
@@ -121,14 +117,6 @@ export type DrivePage<T> = Readonly<{
   total: number;
   limit: number;
   offset: number;
-}>;
-
-export type DriveUpload = Readonly<{
-  name: string;
-  content: ArrayBuffer;
-  sizeBytes: bigint;
-  mimeType: string;
-  checksum: string;
 }>;
 
 export class DriveError extends Error {

@@ -1,14 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildPlaceholderEdits,
   computeLineDiff,
   extractClausesFromText,
-  extractPlaceholderCounts,
-  inferFieldType,
   resolveDocLabel,
 } from "../../src/modules/ai/tools/documentContent.js";
 import type { DocIndex, DocStore } from "../../src/modules/ai/tools/runtimeTypes.js";
-import { readTableCells } from "../../src/modules/ai/tools/tableHelpers.js";
+import { readTableCells } from "../../src/modules/ai/tools/tabularExecutors.js";
 import { registerCreatedDocumentInTurn } from "../../src/modules/ai/tools/turnState.js";
 
 describe("chat runtime helpers", () => {
@@ -53,46 +50,6 @@ describe("chat runtime helpers", () => {
       file_type: "docx",
       filename: "created.docx",
     });
-  });
-
-  it("extracts placeholders and builds contextual edits", () => {
-    const text = "Tenant: {{ tenant_name }}\nStart: {{startDate}}\nTenant: {{tenant_name}}";
-    expect([...extractPlaceholderCounts(text)]).toEqual([
-      ["tenant_name", 2],
-      ["startDate", 1],
-    ]);
-    expect(inferFieldType("startDate")).toBe("date");
-    expect(
-      buildPlaceholderEdits(
-        text,
-        new Map([
-          ["tenant_name", "Acme Ltd"],
-          ["startDate", "2026-09-02"],
-        ]),
-      ),
-    ).toEqual([
-      {
-        find: "{{ tenant_name }}",
-        replace: "Acme Ltd",
-        context_before: "Tenant: ",
-        context_after: "",
-        reason: "Fill Tenant Name",
-      },
-      {
-        find: "{{startDate}}",
-        replace: "2026-09-02",
-        context_before: "Start: ",
-        context_after: "",
-        reason: "Fill Start Date",
-      },
-      {
-        find: "{{tenant_name}}",
-        replace: "Acme Ltd",
-        context_before: "Tenant: ",
-        context_after: "",
-        reason: "Fill Tenant Name",
-      },
-    ]);
   });
 
   it("keeps line diff and clause extraction output stable", () => {

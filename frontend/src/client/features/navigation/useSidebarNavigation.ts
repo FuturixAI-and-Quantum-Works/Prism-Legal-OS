@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   isNavigationGroupRoute,
   navigationGroupsById,
@@ -15,7 +16,9 @@ function groupsForPath(pathname: string): ExpandedGroups {
   }
 }
 
-export function useSidebarNavigation(collapsed: boolean, pathname: string) {
+export function useSidebarNavigation(collapsed: boolean) {
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
   const [expandedGroups, setExpandedGroups] = useState<ExpandedGroups>(() =>
     groupsForPath(pathname),
   )
@@ -44,5 +47,5 @@ export function useSidebarNavigation(collapsed: boolean, pathname: string) {
     }))
   }
 
-  return { expandedGroups, toggleGroup }
+  return { expandedGroups, navigate, pathname, toggleGroup }
 }
