@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { requireAuth } from "../../middleware/auth.js";
+import { createRulebookController } from "./rulebook.controller.js";
+import type { RulebookDraftService } from "./rulebook.service.js";
 import { createWorkflowsController } from "./workflows.controller.js";
 import type { WorkflowsService } from "./workflows.service.js";
 
@@ -20,5 +22,12 @@ export function createWorkflowsRouter(service: WorkflowsService): Router {
   router.post("/:workflowId/share", requireAuth, controller.share);
   router.delete("/:workflowId/shares/:shareId", requireAuth, controller.removeShare);
 
+  return router;
+}
+
+export function createRulebookRouter(service: RulebookDraftService): Router {
+  const router = Router();
+  const controller = createRulebookController(service);
+  router.post("/generate", requireAuth, controller.generate);
   return router;
 }

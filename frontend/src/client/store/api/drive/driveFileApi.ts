@@ -37,10 +37,6 @@ export interface ListFilesRequest {
   sort_order?: 'asc' | 'desc'
 }
 
-export interface UploadDriveFileRequest {
-  formData: FormData
-}
-
 export interface CopyFilesRequest {
   file_ids: string[]
   target_workspace_id?: string | null

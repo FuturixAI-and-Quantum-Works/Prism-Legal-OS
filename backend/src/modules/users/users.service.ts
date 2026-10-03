@@ -67,10 +67,6 @@ export class UsersService {
     return this.loadProfile(userId);
   }
 
-  async ensureProfile(userId: string): Promise<void> {
-    await this.repository.ensureProfile(userId);
-  }
-
   async getProfile(
     userId: string,
   ): Promise<UserProfileDto & { aiProviderConnections: readonly ProviderConnectionDto[] }> {
@@ -90,48 +86,9 @@ export class UsersService {
     return this.getProfile(userId);
   }
 
-  listConnections(userId: string): Promise<readonly ProviderConnectionDto[]> {
-    return this.ai.listConnections(userId);
-  }
-
-  createConnection(
-    userId: string,
-    input: CreateProviderConnectionInput,
-  ): Promise<ProviderConnectionDto> {
-    return this.ai.createConnection(userId, input);
-  }
-
-  updateConnection(
-    userId: string,
-    connectionId: string,
-    input: UpdateProviderConnectionInput,
-  ): Promise<ProviderConnectionDto | null> {
-    return this.ai.updateConnection(userId, connectionId, input);
-  }
-
-  deleteConnection(userId: string, connectionId: string): Promise<boolean> {
-    return this.ai.deleteConnection(userId, connectionId);
-  }
-
-  testConnection(userId: string, connectionId: string): Promise<"ok" | "not-found" | "no-model"> {
-    return this.ai.testConnection(userId, connectionId);
-  }
-
-  listModels(userId: string): Promise<readonly AiModelTargetDto[]> {
-    return this.ai.listModels(userId);
-  }
-
-  getPreferences(userId: string): Promise<Partial<Record<AiTask, AiTarget>>> {
-    return this.ai.getPreferences(userId);
-  }
-
   async setPreference(userId: string, task: AiTask, target: AiTarget) {
     await this.ai.setPreference(userId, task, target);
     return this.ai.getPreferences(userId);
-  }
-
-  deleteAccount(userId: string): Promise<void> {
-    return this.repository.deleteAccount(userId);
   }
 
   private async loadProfile(userId: string, repairMissing = false): Promise<UserProfileDto> {

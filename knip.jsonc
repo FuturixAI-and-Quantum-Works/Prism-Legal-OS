@@ -1,0 +1,35 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  "ignoreExportsUsedInFile": true,
+  "ignoreUnresolved": ["./src/test/setup.ts"],
+  "workspaces": {
+    ".": {
+      // CI gates run through npm scripts, which production mode does not read.
+      "entry": [
+        "scripts/check-backend-auth-locals.mjs!",
+        "scripts/check-docs.mjs!",
+        "scripts/check-license-consistency.mjs!",
+        "scripts/check-publication.mjs!",
+      ],
+      "project": ["**/*.{js,mjs,cjs,ts,mts,cts}!", "!e2e/**!"],
+    },
+    "backend": {
+      "entry": [
+        "src/index.ts!",
+        // The queue worker and the database CLIs start from npm scripts other than start.
+        "src/worker.ts!",
+        "src/scripts/{migrate,setup,verifyDatabase}.ts!",
+        "src/scripts/seed{Admin,AiCatalog,ApprovalPolicies,BundledDocxTemplates,DocxTemplates,Templates,Workflows}.ts!",
+        // The Better Auth CLI loads this file by path from verifyDatabase.
+        "src/auth/schema.ts!",
+        // swagger-jsdoc reads these files through its apis glob in src/swagger.ts.
+        "src/modules/**/*.openapi.routes.ts!",
+      ],
+    },
+    "frontend": {
+      "entry": ["src/test/setup.ts"],
+      // vite.config.js imports it at build time, and hosts that install without devDependencies still build.
+      "ignoreDependencies": ["@vitejs/plugin-react"],
+    },
+  },
+}

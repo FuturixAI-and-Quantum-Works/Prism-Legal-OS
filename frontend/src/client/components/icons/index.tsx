@@ -1,4 +1,3 @@
-import pencil from '../../assets/icons/pencil.svg'
 import assistant from '../../assets/icons/assistant.png'
 import projectFolderIcon from '../../assets/project-folder-icon.svg'
 import uploadIcon from '../../assets/upload.svg'
@@ -266,93 +265,6 @@ export const MenuIcon = ({
   </svg>
 )
 
-export const PlusIcon = () => (
-  <svg width="8" height="8" viewBox="0 0 12 12" fill="none">
-    <path d="M6 1V11M1 6H11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-  </svg>
-)
-
-export const ProjectsEmptyIcon = () => (
-  <div style={{ position: 'relative', width: '41px', height: '41px' }}>
-    <div
-      style={{
-        width: '41px',
-        height: '41px',
-        backgroundColor: '#D0D3D6',
-        borderRadius: '8.5px',
-        position: 'relative',
-      }}
-    >
-      <div
-        style={{
-          position: 'absolute',
-          left: '7.7px',
-          top: '7.7px',
-          width: '25.5px',
-          height: '4.6px',
-          backgroundColor: '#FAFEFF',
-          borderRadius: '3px',
-        }}
-      />
-      <div
-        style={{
-          position: 'absolute',
-          left: '7.7px',
-          top: '18.6px',
-          width: '25.5px',
-          height: '4.6px',
-          backgroundColor: '#FAFEFF',
-          borderRadius: '3px',
-        }}
-      />
-      <div
-        style={{
-          position: 'absolute',
-          left: '7.7px',
-          top: '29.4px',
-          width: '25.5px',
-          height: '4.6px',
-          backgroundColor: '#FAFEFF',
-          borderRadius: '3px',
-        }}
-      />
-    </div>
-    <div
-      style={{
-        position: 'absolute',
-        right: '-8px',
-        bottom: '-4px',
-        width: '24px',
-        height: '24px',
-        borderRadius: '50%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <img src={pencil} alt="" />
-    </div>
-  </div>
-)
-
-export const ChevronDownIcon = ({
-  size = 12,
-  color = '#454545',
-}: {
-  size?: number
-  color?: string
-}) => (
-  <svg width={size} height={size} viewBox="0 0 12 12" fill="none">
-    <path
-      d="M3 4.5L6 7.5L9 4.5"
-      stroke={color}
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-)
-
 export const ChevronRightIcon = ({
   size = 20,
   color = '#999999',
@@ -367,15 +279,6 @@ export const ChevronRightIcon = ({
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-    />
-  </svg>
-)
-
-export const FolderIcon = ({ size = 18, color = '#F5A623' }: { size?: number; color?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 18 18" fill="none">
-    <path
-      d="M2.25 4.5C2.25 3.67157 2.92157 3 3.75 3H6.87868C7.27565 3 7.65639 3.15804 7.9393 3.43934L9 4.5H14.25C15.0784 4.5 15.75 5.17157 15.75 6V13.5C15.75 14.3284 15.0784 15 14.25 15H3.75C2.92157 15 2.25 14.3284 2.25 13.5V4.5Z"
-      fill={color}
     />
   </svg>
 )

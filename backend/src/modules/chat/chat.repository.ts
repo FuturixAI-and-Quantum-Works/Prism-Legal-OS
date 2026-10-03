@@ -12,7 +12,6 @@ import type { AccessibleChat, ChatMessage } from "./chat.types.js";
 
 export type StoredMessage = typeof chatMessages.$inferSelect;
 export type StoredChat = typeof chats.$inferSelect;
-export type StoredSession = typeof chatSessions.$inferSelect;
 
 export type SaveMessageInput = Readonly<{
   chatId: string;
