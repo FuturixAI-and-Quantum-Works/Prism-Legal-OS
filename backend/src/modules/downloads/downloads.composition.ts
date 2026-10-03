@@ -1,6 +1,7 @@
 import { getAppConfig } from "../../config.js";
 import { verifyDownload } from "../../lib/downloadTokens.js";
-import { buildContentDisposition, downloadFile } from "../../lib/storage.js";
+import { downloadFile } from "../../lib/storage.js";
+import { buildContentDisposition } from "../../storage/contentDisposition.js";
 import { verifyLocalRead } from "../../storage/localSignedRead.js";
 import { accessAuthority } from "../access/access.composition.js";
 import { createProductionDriveAccess } from "../drive/drive.access.js";

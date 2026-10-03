@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { describe, expect, it, vi } from "vitest";
 import { DocumentContextService } from "../../src/modules/documents/documents.context.service.js";
-import { createDocumentsInsightsController } from "../../src/modules/documents/documents.insights.controller.js";
+import { createDocumentsContextController } from "../../src/modules/documents/documents.context.controller.js";
 import {
   DocumentInsightsError,
   DocumentInsightsService,
@@ -64,7 +64,7 @@ function createHarness(
     modelForRuntime: vi.fn(() => "test-model"),
     createAttentionItems,
   });
-  return { complete, createAttentionItems, extract, service };
+  return { complete, context, createAttentionItems, extract, service };
 }
 
 describe("DocumentInsightsService", () => {
@@ -135,14 +135,14 @@ describe("DocumentInsightsService", () => {
   });
 
   it("returns a client-visible error response for typed insight failures", async () => {
-    const { service } = createHarness(vi.fn<DocumentInsightsDependencies["complete"]>());
+    const { context, service } = createHarness(vi.fn<DocumentInsightsDependencies["complete"]>());
     vi.spyOn(service, "generate").mockRejectedValue(
       new DocumentInsightsError(
         { kind: "upstream", operation: "risks" },
         { cause: new Error("private provider detail") },
       ),
     );
-    const controller = createDocumentsInsightsController(service);
+    const controller = createDocumentsContextController(context, service);
     const json = vi.fn();
     const response = {
       locals: { auth: { user: { id: userId, email: actor.userEmail } } },
@@ -151,7 +151,7 @@ describe("DocumentInsightsService", () => {
     };
     response.status.mockReturnValue(response);
 
-    controller.generate({ params: { documentId } } as Request, response as Response, vi.fn());
+    controller.insights({ params: { documentId } } as Request, response as Response, vi.fn());
 
     await vi.waitFor(() => expect(response.status).toHaveBeenCalledWith(502));
     expect(json).toHaveBeenCalledWith({

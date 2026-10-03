@@ -7,13 +7,13 @@ export function normalizeDownloadFilename(name: string): string {
   }).join("");
 }
 
-export function sanitizeDispositionFilename(name: string): string {
+function sanitizeDispositionFilename(name: string): string {
   return normalizeDownloadFilename(name)
     .replace(/["\\]/g, "_")
     .replace(/[^\x20-\x7E]/g, "_");
 }
 
-export function encodeRFC5987(value: string): string {
+function encodeRFC5987(value: string): string {
   return encodeURIComponent(value).replace(
     /['()*]/g,
     (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,

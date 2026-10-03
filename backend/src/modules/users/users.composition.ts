@@ -46,6 +46,10 @@ const aiSettings: UserAiSettings = {
   },
 };
 
-export const userRouter = createUsersRouter(
-  new UsersService(new DrizzleUsersRepository(), aiSettings),
-);
+const repository = new DrizzleUsersRepository();
+
+export const userRouter = createUsersRouter({
+  profiles: new UsersService(repository, aiSettings),
+  accounts: repository,
+  ai: aiSettings,
+});
