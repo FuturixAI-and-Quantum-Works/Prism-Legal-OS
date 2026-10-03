@@ -1,4 +1,4 @@
-import { ProjectIcon } from '../../components/icons/ProjectIcon'
+import { ProjectIcon } from '../../components/icons'
 import { AccessibleDialog } from '../../components/ui/AccessibleDialog'
 import { Button } from '../../components/ui/Button'
 import {
