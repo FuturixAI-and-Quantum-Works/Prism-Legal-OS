@@ -18,17 +18,6 @@ export type TabularReview = Readonly<{
   columnsConfig: unknown;
 }>;
 
-export type TabularReviewShare = Readonly<{
-  id: string;
-  reviewId: string;
-  userId: string | null;
-  email: string;
-  role: "admin" | "editor" | "viewer";
-  sharedByUserId: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}>;
-
 export type TabularDocument = Readonly<{
   id: string;
   userId: string;
@@ -52,12 +41,6 @@ export type TabularCellResult = Readonly<{
   summary: string;
   flag: "green" | "grey" | "yellow" | "red";
   reasoning: string;
-}>;
-
-export type TabularReviewDetails = Readonly<{
-  review: TabularReview & Readonly<{ is_owner: boolean; access_role: string }>;
-  cells: readonly unknown[];
-  documents: readonly unknown[];
 }>;
 
 export type TabularRunOperation = "generate" | "regenerate-cell";

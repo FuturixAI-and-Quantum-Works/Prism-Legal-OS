@@ -1,7 +1,6 @@
 import { EditorSurface } from './EditorSurface'
 import { EditorToolbar } from './EditorToolbar'
-import type { TiptapEditorProps } from './editorTypes'
-import { useEditorState } from './useEditorState'
+import { useEditorState, type TiptapEditorProps } from './useEditorState'
 
 export default function TiptapEditorFeature({
   content,

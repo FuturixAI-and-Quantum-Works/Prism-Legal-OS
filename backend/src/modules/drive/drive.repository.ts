@@ -183,6 +183,3 @@ export interface DriveFileRepository {
 }
 
 export type DriveFileReader = Pick<DriveFileRepository, "findFile">;
-
-export interface DriveRepository
-  extends DriveWorkspaceRepository, DriveFolderRepository, DriveFileRepository {}

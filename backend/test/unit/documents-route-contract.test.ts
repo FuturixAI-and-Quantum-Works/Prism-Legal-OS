@@ -3,38 +3,38 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import swaggerJsdoc from "swagger-jsdoc";
 import ts from "typescript";
-import { describe, expect, it } from "vitest";
-import { createDocumentsChangesRouter } from "../../src/modules/documents/documents.changes.routes.js";
-import { DocumentChangesService } from "../../src/modules/documents/documents.changes.service.js";
-import { createDocumentsContentRouter } from "../../src/modules/documents/documents.content.routes.js";
-import { DocumentContextService } from "../../src/modules/documents/documents.context.service.js";
-import { createDocumentsContextRouter } from "../../src/modules/documents/documents.context.routes.js";
-import { createDocumentsCoreRouter } from "../../src/modules/documents/documents.core.routes.js";
-import { createDocumentsGovernanceRouter } from "../../src/modules/documents/documents.governance.routes.js";
-import { DocumentGovernanceService } from "../../src/modules/documents/documents.governance.service.js";
-import { DocumentInsightsService } from "../../src/modules/documents/documents.insights.service.js";
-import { createDocumentsInsightsRouter } from "../../src/modules/documents/documents.insights.routes.js";
-import { createDocumentsPlaceholdersRouter } from "../../src/modules/documents/documents.placeholders.routes.js";
-import { DocumentPlaceholdersService } from "../../src/modules/documents/documents.placeholders.service.js";
-import { DocumentsService } from "../../src/modules/documents/documents.service.js";
+import { describe, expect, it, vi } from "vitest";
+import { createDocumentsRouter } from "../../src/modules/documents/documents.routes.js";
+import {
+  recordingService,
+  routeParams,
+  routeTable,
+  type RouteBodies,
+  type ServiceCall,
+} from "./route-table.js";
 
-function registeredRoutes(router: object): Set<string> {
-  const stack = Reflect.get(router, "stack");
-  if (!Array.isArray(stack)) throw new Error("Express router stack is unavailable");
-  return new Set(
-    stack.flatMap((layer: unknown) => {
-      if (!layer || typeof layer !== "object") return [];
-      const route = Reflect.get(layer, "route");
-      if (!route || typeof route !== "object") return [];
-      const path = Reflect.get(route, "path");
-      const methods = Reflect.get(route, "methods");
-      if (typeof path !== "string" || !methods || typeof methods !== "object") return [];
-      return Object.entries(methods)
-        .filter(([, enabled]) => enabled)
-        .map(([method]) => `${method.toUpperCase()} ${path}`);
-    }),
-  );
-}
+vi.mock("../../src/lib/upload.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../src/lib/upload.js")>();
+  return {
+    ...actual,
+    singleFileUpload: (fieldName: string) =>
+      Object.assign(actual.singleFileUpload(fieldName), { uploadField: fieldName }),
+  };
+});
+
+const html = "<p>pinned</p>";
+const routeBodies: RouteBodies = {
+  "POST /download-zip": { document_ids: [routeParams.documentId] },
+  "POST /:documentId/versions/from-html": { html },
+  "POST /:documentId/export": { html, format: "pdf" },
+  "POST /:documentId/context-files": { context_document_id: routeParams.contextFileId },
+  "POST /:documentId/change-requests": { change_type: "wording" },
+  "PATCH /:documentId/change-requests/:requestId": { action: "approve" },
+  "POST /:documentId/members": { email: "reviewer@example.com", role: "REVIEWER" },
+  "POST /:documentId/invitations": { email: "invitee@example.com", role: "editor" },
+  "PATCH /:documentId/shares/:shareId": { role: "viewer" },
+  "POST /:documentId/placeholders/apply": { confirm: "Confirm and fill" },
+};
 
 function hasNewExpression(node: ts.Node): boolean {
   if (ts.isNewExpression(node)) return true;
@@ -46,89 +46,78 @@ function hasNewExpression(node: ts.Node): boolean {
 }
 
 describe("documents route contract", () => {
-  it("preserves core, version, context, insights, and change paths", () => {
-    const service: DocumentsService = Object.create(DocumentsService.prototype);
-    const context: DocumentContextService = Object.create(DocumentContextService.prototype);
-    const insights: DocumentInsightsService = Object.create(DocumentInsightsService.prototype);
-    const changes: DocumentChangesService = Object.create(DocumentChangesService.prototype);
-    const governance: DocumentGovernanceService = Object.create(
-      DocumentGovernanceService.prototype,
-    );
-    const placeholders: DocumentPlaceholdersService = Object.create(
-      DocumentPlaceholdersService.prototype,
-    );
-    const routes = new Set([
-      ...registeredRoutes(createDocumentsCoreRouter(service)),
-      ...registeredRoutes(createDocumentsContentRouter(service)),
-      ...registeredRoutes(createDocumentsContextRouter(context)),
-      ...registeredRoutes(createDocumentsInsightsRouter(insights)),
-      ...registeredRoutes(createDocumentsChangesRouter(changes)),
-      ...registeredRoutes(createDocumentsGovernanceRouter(governance)),
-      ...registeredRoutes(createDocumentsPlaceholdersRouter(placeholders)),
+  it("pins every route's method, path, middleware, and handler in registration order", async () => {
+    const calls: ServiceCall[] = [];
+    const router = createDocumentsRouter({
+      documents: recordingService("documents", calls),
+      context: recordingService("context", calls),
+      insights: recordingService("insights", calls),
+      changes: recordingService("changes", calls),
+      governance: recordingService("governance", calls),
+      placeholders: recordingService("placeholders", calls),
+    });
+    expect(await routeTable(router, calls, routeBodies)).toEqual([
+      'POST /download-zip requireAuth -> documents.downloadZip(actor, {"documentIds":[":documentId"],"mode":"atomic"})',
+      'GET /:documentId/display requireAuth -> documents.rawContent(actor, ":documentId", undefined, true)',
+      'GET /:documentId/url requireAuth -> documents.signedUrl(actor, ":documentId", undefined, false)',
+      'GET /:documentId/preview-summary requireAuth -> documents.previewSummary(actor, ":documentId")',
+      'GET /:documentId/docx requireAuth -> documents.rawContent(actor, ":documentId", undefined)',
+      'GET /:documentId/html requireAuth -> documents.html(actor, ":documentId", undefined)',
+      'GET /:documentId/versions requireAuth -> documents.listVersions(actor, ":documentId")',
+      'POST /:documentId/versions requireAuth upload(file) -> documents.uploadVersion(actor, ":documentId", {"filename":"pinned.docx","buffer":"<bytes>"})',
+      'POST /:documentId/versions/from-html requireAuth -> documents.saveHtmlVersion(actor, ":documentId", "<p>pinned</p>", undefined)',
+      'PATCH /:documentId/versions/:versionId requireAuth -> documents.renameVersion(actor, ":documentId", ":versionId", null)',
+      'GET /:documentId/tracked-change-ids requireAuth -> documents.trackedChangeIds(actor, ":documentId", undefined)',
+      'POST /:documentId/export requireAuth -> documents.export(actor, ":documentId", "<p>pinned</p>", "pdf")',
+      'GET /:documentId/context-files requireAuth -> context.list(actor, ":documentId")',
+      'POST /:documentId/context-files requireAuth -> context.add(actor, ":documentId", ":contextFileId")',
+      'DELETE /:documentId/context-files/:contextFileId requireAuth -> context.remove(actor, ":documentId", ":contextFileId")',
+      'GET /:documentId/insights requireAuth -> insights.generate(actor, ":documentId")',
+      'POST /:documentId/edits/:editId/accept requireAuth -> changes.resolveEdit(actor, ":documentId", ":editId", "accept")',
+      'POST /:documentId/edits/:editId/reject requireAuth -> changes.resolveEdit(actor, ":documentId", ":editId", "reject")',
+      'POST /:documentId/change-requests requireAuth -> changes.createRequest(actor, ":documentId", {"changeType":"wording"})',
+      'GET /:documentId/change-requests requireAuth -> changes.listRequests(actor, ":documentId")',
+      'PATCH /:documentId/change-requests/:requestId requireAuth -> changes.reviewRequest(actor, ":documentId", ":requestId", "approve", undefined)',
+      'GET /:documentId/session-context requireAuth -> governance.sessionContext(actor, ":documentId")',
+      'GET /:documentId/members requireAuth -> governance.listMembers(actor, ":documentId")',
+      'POST /:documentId/members requireAuth -> governance.assignMember(actor, ":documentId", {"email":"reviewer@example.com","targetUserId":null,"role":"REVIEWER"})',
+      'DELETE /:documentId/members/:memberId requireAuth -> governance.revokeMember(actor, ":documentId", ":memberId")',
+      'GET /:documentId/shares requireAuth -> governance.listShares(actor, ":documentId")',
+      'POST /:documentId/invitations requireAuth -> governance.invite(actor, ":documentId", {"email":"invitee@example.com","role":"editor"})',
+      'PATCH /:documentId/shares/:shareId requireAuth -> governance.updateShare(actor, ":documentId", ":shareId", "viewer")',
+      'DELETE /:documentId/shares/:shareId requireAuth -> governance.removeShare(actor, ":documentId", ":shareId")',
+      'POST /:documentId/send-review requireAuth -> governance.transition(actor, ":documentId", "send_review", null, null)',
+      'POST /:documentId/send-approval requireAuth -> governance.transition(actor, ":documentId", "send_approval", null, null)',
+      'POST /:documentId/approve requireAuth -> governance.transition(actor, ":documentId", "approve_document", null, null)',
+      'POST /:documentId/reject requireAuth -> governance.transition(actor, ":documentId", "reject_document", null, null)',
+      'POST /:documentId/finalize requireAuth -> governance.transition(actor, ":documentId", "finalize_document", null, null)',
+      'POST /:documentId/request-clarification requireAuth -> governance.transition(actor, ":documentId", "request_clarification", null, null)',
+      'GET /:documentId/chat-messages requireAuth -> governance.listChatMessages(actor, ":documentId")',
+      'GET /:documentId/comments requireAuth -> governance.listComments(actor, ":documentId")',
+      'POST /:documentId/comments requireAuth -> governance.createComment(actor, ":documentId", {"versionId":null,"parentCommentId":null,"body":{"valid":false,"message":"body is required"},"anchorText":null,"anchorStart":null,"anchorEnd":null})',
+      'PATCH /:documentId/comments/:commentId requireAuth -> governance.updateComment(actor, ":documentId", ":commentId", {"body":null,"resolved":null})',
+      'DELETE /:documentId/comments/:commentId requireAuth -> governance.deleteComment(actor, ":documentId", ":commentId")',
+      'GET /:documentId/activity requireAuth -> governance.listActivity(actor, ":documentId")',
+      'GET /:documentId/placeholders requireAuth -> placeholders.get(actor, ":documentId")',
+      'PUT /:documentId/placeholders/values requireAuth -> placeholders.save(actor, ":documentId", {"valid":false,"message":"values object is required"})',
+      'POST /:documentId/placeholders/apply requireAuth -> placeholders.apply(actor, ":documentId")',
+      'GET /:documentId/edits requireAuth -> placeholders.listEdits(actor, ":documentId", null)',
+      "GET / requireAuth -> documents.list(actor, {})",
+      "POST / requireAuth -> documents.createBlank(actor, {})",
+      'POST /upload requireAuth upload(file) -> documents.upload({"userId":"user-1","userEmail":"user@example.com","filename":"pinned.docx","buffer":"<bytes>","attached":false})',
+      'GET /:documentId requireAuth -> documents.get(actor, ":documentId")',
+      'PATCH /:documentId requireAuth -> documents.update(actor, ":documentId", {})',
+      'DELETE /:documentId requireAuth -> documents.remove(actor, ":documentId")',
     ]);
-    for (const route of [
-      "GET /",
-      "POST /",
-      "POST /upload",
-      "GET /:documentId",
-      "PATCH /:documentId",
-      "DELETE /:documentId",
-      "GET /:documentId/versions",
-      "POST /:documentId/versions",
-      "POST /:documentId/versions/from-html",
-      "GET /:documentId/context-files",
-      "POST /:documentId/context-files",
-      "DELETE /:documentId/context-files/:contextFileId",
-      "GET /:documentId/insights",
-      "POST /:documentId/edits/:editId/accept",
-      "POST /:documentId/edits/:editId/reject",
-      "POST /:documentId/change-requests",
-      "GET /:documentId/change-requests",
-      "PATCH /:documentId/change-requests/:requestId",
-      "GET /:documentId/session-context",
-      "GET /:documentId/members",
-      "POST /:documentId/members",
-      "DELETE /:documentId/members/:memberId",
-      "GET /:documentId/shares",
-      "POST /:documentId/invitations",
-      "PATCH /:documentId/shares/:shareId",
-      "DELETE /:documentId/shares/:shareId",
-      "POST /:documentId/send-review",
-      "POST /:documentId/send-approval",
-      "POST /:documentId/approve",
-      "POST /:documentId/reject",
-      "POST /:documentId/finalize",
-      "POST /:documentId/request-clarification",
-      "GET /:documentId/chat-messages",
-      "GET /:documentId/comments",
-      "POST /:documentId/comments",
-      "PATCH /:documentId/comments/:commentId",
-      "DELETE /:documentId/comments/:commentId",
-      "GET /:documentId/activity",
-      "GET /:documentId/placeholders",
-      "PUT /:documentId/placeholders/values",
-      "POST /:documentId/placeholders/apply",
-      "GET /:documentId/edits",
-    ]) {
-      expect(routes).toContain(route);
-    }
   });
 
-  it("keeps split routes and controllers free of infrastructure imports", async () => {
+  it("keeps routes and controllers free of infrastructure imports", async () => {
     const files = [
       "documents.routes.ts",
       "documents.openapi.routes.ts",
-      "documents.core.routes.ts",
-      "documents.content.routes.ts",
-      "documents.context.routes.ts",
-      "documents.insights.routes.ts",
-      "documents.changes.routes.ts",
-      "documents.governance.routes.ts",
-      "documents.placeholders.routes.ts",
       "documents.core.controller.ts",
       "documents.content.controller.ts",
       "documents.context.controller.ts",
-      "documents.insights.controller.ts",
       "documents.changes.controller.ts",
       "documents.governance.controller.ts",
       "documents.placeholders.controller.ts",

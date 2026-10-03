@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { appRoutes } from '../appRoutes'
-import Sidebar from './Sidebar'
+import { SidebarNavigation } from '../features/navigation/SidebarNavigation'
 import Topbar, { BreadcrumbItem } from './Topbar'
 import LibraryPanel from './LibraryPanel'
 import { useResponsive } from '../hooks'
@@ -109,7 +109,7 @@ export default function Layout({
   }
 
   const sidebar = (
-    <Sidebar
+    <SidebarNavigation
       collapsed={isMobile ? false : sidebarCollapsed && !sidebarHovered}
       activePage={activePage}
       onLibraryClick={() => {

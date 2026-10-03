@@ -1,5 +1,5 @@
 import FileTypeIcon from '../../components/FileTypeIcon'
-import { FolderIcon } from '../projects/ProjectPrimitives'
+import { UploadIcon } from '../../components/icons'
 import type { WorkspaceComplianceFile } from './complianceModels'
 import { complianceFontFamily } from './compliancePresentation'
 
@@ -27,7 +27,7 @@ export function WorkspaceDocumentsPanel({ workspaceName, files }: WorkspaceDocum
           gap: '14px',
         }}
       >
-        <FolderIcon size={90} />
+        <UploadIcon size={90} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <p
             style={{

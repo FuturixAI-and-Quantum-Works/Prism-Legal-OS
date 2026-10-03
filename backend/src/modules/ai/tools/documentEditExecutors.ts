@@ -1,20 +1,19 @@
-import { and, eq } from "drizzle-orm";
-import { db, documentPlaceholderValues } from "../../../db/index.js";
 import { loadActiveVersion } from "../../../lib/documentVersions.js";
 import type { EditInput } from "../../../lib/docxTrackedChanges.js";
 import { extractDocxBodyText } from "../../../lib/docxTrackedChangesXml.js";
 import { downloadFile } from "../../../lib/storage.js";
+import { DocumentPlaceholdersRepository } from "../../documents/documents.placeholders.repository.js";
 import {
   buildPlaceholderEdits,
-  extractPlaceholderCounts,
-  getSavedPlaceholderValues,
-  humanizeKey,
-  inferFieldType,
-  resolveDocLabel,
-} from "./documentContent.js";
+  detectPlaceholderOccurrences,
+  placeholderFields,
+} from "../../documents/documents.placeholders.service.js";
+import { resolveDocLabel } from "./documentContent.js";
 import { runEditDocument } from "./docxOperations.js";
 import type { DocEditedResult } from "./runtimeTypes.js";
 import type { ToolExecutionContext } from "./types.js";
+
+const placeholderValues = new DocumentPlaceholdersRepository();
 
 export async function executeEditDocument(
   context: ToolExecutionContext,
@@ -246,18 +245,10 @@ export async function executeExtractPlaceholders(
       return;
     }
     const text = await extractDocxBodyText(Buffer.from(raw), { signal: context.signal });
-    const counts = extractPlaceholderCounts(text);
-    const saved = await getSavedPlaceholderValues(indexed.document_id);
-    const fields = [...counts.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, occurrences]) => ({
-        key,
-        label: humanizeKey(key),
-        type: inferFieldType(key),
-        required: true,
-        occurrences,
-        value: saved.get(key) ?? null,
-      }));
+    const fields = placeholderFields(
+      detectPlaceholderOccurrences(text),
+      await placeholderValues.valuesByKey(indexed.document_id),
+    );
     context.events.toolResults.push({
       role: "tool",
       tool_call_id: context.callId,
@@ -299,7 +290,7 @@ export async function executeGetPlaceholderValues(
     });
     return;
   }
-  const saved = await getSavedPlaceholderValues(indexed.document_id);
+  const saved = await placeholderValues.valuesByKey(indexed.document_id);
   const values: Record<string, string | null> = {};
   const keysToGet = keys.length ? keys : [...saved.keys()];
   for (const key of keysToGet) {
@@ -334,30 +325,7 @@ export async function executeSetPlaceholderValue(
     return;
   }
 
-  const [existing] = await db
-    .select({ id: documentPlaceholderValues.id })
-    .from(documentPlaceholderValues)
-    .where(
-      and(
-        eq(documentPlaceholderValues.documentId, indexed.document_id),
-        eq(documentPlaceholderValues.fieldKey, key),
-      ),
-    )
-    .limit(1);
-  if (existing) {
-    await db
-      .update(documentPlaceholderValues)
-      .set({ value, updatedByUserId: context.user.id, updatedAt: new Date() })
-      .where(eq(documentPlaceholderValues.id, existing.id));
-  } else {
-    await db.insert(documentPlaceholderValues).values({
-      documentId: indexed.document_id,
-      fieldKey: key,
-      value,
-      createdByUserId: context.user.id,
-      updatedByUserId: context.user.id,
-    });
-  }
+  await placeholderValues.saveValues(indexed.document_id, context.user.id, { [key]: value });
   context.events.toolResults.push({
     role: "tool",
     tool_call_id: context.callId,
@@ -390,32 +358,7 @@ export async function executeFillPlaceholders(
   }
 
   try {
-    for (const [fieldKey, val] of Object.entries(values)) {
-      const [existing] = await db
-        .select({ id: documentPlaceholderValues.id })
-        .from(documentPlaceholderValues)
-        .where(
-          and(
-            eq(documentPlaceholderValues.documentId, indexed.document_id),
-            eq(documentPlaceholderValues.fieldKey, fieldKey),
-          ),
-        )
-        .limit(1);
-      if (existing) {
-        await db
-          .update(documentPlaceholderValues)
-          .set({ value: val, updatedByUserId: context.user.id, updatedAt: new Date() })
-          .where(eq(documentPlaceholderValues.id, existing.id));
-      } else {
-        await db.insert(documentPlaceholderValues).values({
-          documentId: indexed.document_id,
-          fieldKey,
-          value: val,
-          createdByUserId: context.user.id,
-          updatedByUserId: context.user.id,
-        });
-      }
-    }
+    await placeholderValues.saveValues(indexed.document_id, context.user.id, values);
     const active = await loadActiveVersion(indexed.document_id);
     if (!active) {
       context.events.toolResults.push({
@@ -437,7 +380,10 @@ export async function executeFillPlaceholders(
     }
 
     const text = await extractDocxBodyText(Buffer.from(raw), { signal: context.signal });
-    const edits = buildPlaceholderEdits(text, new Map(Object.entries(values)));
+    const edits = buildPlaceholderEdits(
+      detectPlaceholderOccurrences(text),
+      new Map(Object.entries(values)),
+    );
     if (!edits.length) {
       context.events.toolResults.push({
         role: "tool",

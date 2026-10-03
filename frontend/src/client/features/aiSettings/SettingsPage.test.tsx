@@ -19,10 +19,6 @@ vi.mock('./aiSettingsApi', async (importOriginal) => {
   return { ...original, ...api }
 })
 
-vi.mock('../../components/Layout', () => ({
-  default: ({ children }: { children: React.ReactNode }) => <main>{children}</main>,
-}))
-
 const capabilities = {
   input: { text: true, image: false, pdf: false },
   output: { text: true, structured: false, toolCalls: false },
@@ -115,7 +111,11 @@ const snapshot = {
 
 async function renderPage() {
   const user = userEvent.setup()
-  render(<SettingsPage />)
+  render(
+    <main>
+      <SettingsPage />
+    </main>,
+  )
   await screen.findByRole('heading', { name: 'Provider connections' })
   return user
 }
@@ -378,7 +378,11 @@ describe('AI settings', () => {
   it('shows safe load, test, and save errors without raw provider payloads', async () => {
     api.loadAiSettings.mockRejectedValueOnce(new Error('raw load payload'))
     const user = userEvent.setup()
-    const { unmount } = render(<SettingsPage />)
+    const { unmount } = render(
+      <main>
+        <SettingsPage />
+      </main>,
+    )
     expect(await screen.findByRole('alert')).toHaveTextContent('could not be loaded')
     expect(screen.queryByText(/raw load payload/i)).not.toBeInTheDocument()
     unmount()

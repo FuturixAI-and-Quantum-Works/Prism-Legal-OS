@@ -285,5 +285,3 @@ export function useDocumentChat(input: UseDocumentChatInput) {
     toolArtifacts,
   }
 }
-
-export type DocumentChatModel = ReturnType<typeof useDocumentChat>
