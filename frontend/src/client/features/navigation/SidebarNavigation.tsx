@@ -261,13 +261,11 @@ export function SidebarNavigation({
   activePage,
   collapsed,
   onLibraryClick,
-  onNavigate,
-  pathname,
 }: SidebarNavigationProps) {
-  const { expandedGroups, toggleGroup } = useSidebarNavigation(collapsed, pathname)
+  const { expandedGroups, navigate, pathname, toggleGroup } = useSidebarNavigation(collapsed)
 
   const activateItem = (item: NavigationItemDefinition) => {
-    if (item.target.kind === 'route') onNavigate(item.target.path)
+    if (item.target.kind === 'route') navigate(item.target.path)
     else onLibraryClick()
   }
 
@@ -357,7 +355,7 @@ export function SidebarNavigation({
               expanded={expandedGroups[entry.group.id]}
               group={entry.group}
               onActivate={activateItem}
-              onNavigate={onNavigate}
+              onNavigate={navigate}
               onToggle={() => toggleGroup(entry.group.id)}
               pathname={pathname}
             />

@@ -4,9 +4,8 @@ import { accessAuthority } from "../access/access.composition.js";
 import { createContentTextService } from "../content/contentText.service.js";
 import { RulebookDraftService } from "./rulebook.service.js";
 import { DrizzleRulebookRepository } from "./rulebook.repository.js";
-import { createRulebookRouter } from "./rulebook.routes.js";
 import { DrizzleWorkflowsRepository } from "./workflows.repository.js";
-import { createWorkflowsRouter } from "./workflows.routes.js";
+import { createRulebookRouter, createWorkflowsRouter } from "./workflows.routes.js";
 import { WorkflowsService } from "./workflows.service.js";
 
 export function createProductionWorkflowsService(): WorkflowsService {

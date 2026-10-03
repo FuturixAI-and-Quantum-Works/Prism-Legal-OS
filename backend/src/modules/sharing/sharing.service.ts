@@ -126,10 +126,6 @@ export class SharingService {
     return this.repository.listPending(input.resourceType, input.resourceId);
   }
 
-  resolveUserByEmail(email: string) {
-    return this.repository.findUserByEmail(email);
-  }
-
   private async decide(
     load: () => Promise<ShareInvitationRow | null>,
     userId: string,

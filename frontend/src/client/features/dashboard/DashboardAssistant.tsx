@@ -1,7 +1,7 @@
 import { useRef, useState, type ChangeEvent } from 'react'
 import AiAssistantPanel from '../assistant/panel/AiAssistantPanel'
 import BrowseFilesModal from '../files/BrowseFilesDialog'
-import { ProjectIcon } from '../../components/icons/ProjectIcon'
+import { ProjectIcon } from '../../components/icons'
 import { Button } from '../../components/ui/Button'
 import { DirectoryInput } from '../../components/ui/DirectoryInput'
 import { getRequestErrorMessage } from '../../lib/requestErrors'

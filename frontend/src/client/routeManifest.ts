@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react'
+import { createElement, type ComponentType } from 'react'
 import { appRoutePatterns } from './appRoutes'
 
 export type RouteAccess = 'public' | 'onboarding' | 'protected'
@@ -10,6 +10,23 @@ export type RouteDefinition = Readonly<{
   access: RouteAccess
   load: () => Promise<RouteModule>
 }>
+
+const withLayout =
+  <Props extends object>(
+    activePage: string,
+    load: () => Promise<Readonly<{ default: ComponentType<Props> }>>,
+    props?: Props,
+  ) =>
+  async (): Promise<RouteModule> => {
+    const [{ default: Layout }, { default: Page }] = await Promise.all([
+      import('./components/Layout'),
+      load(),
+    ])
+    return {
+      default: () =>
+        createElement(Layout, { activePage, children: createElement(Page, props as Props) }),
+    }
+  }
 
 const loadComplianceList = async (): Promise<RouteModule> => {
   const { ComplianceListFeature } = await import('./features/compliance/ComplianceListFeature')
@@ -70,27 +87,29 @@ export const routeDefinitions: readonly RouteDefinition[] = [
   {
     path: appRoutePatterns.workspaces,
     access: 'protected',
-    load: () => import('./components/pages/WorkspacesPage'),
+    load: withLayout('projects', () => import('./features/workspaces/WorkspacesFeature'), {
+      filter: 'owned',
+    }),
   },
   {
     path: appRoutePatterns.workspace,
     access: 'protected',
-    load: () => import('./features/workspaces/WorkspaceDetailPage'),
+    load: () => import('./features/workspaces/WorkspaceDetailView'),
   },
   {
     path: appRoutePatterns.project,
     access: 'protected',
-    load: () => import('./features/projects/ProjectDetailPage'),
+    load: withLayout('projects', () => import('./features/projects/ProjectDetailPage')),
   },
   {
     path: '/library',
     access: 'protected',
-    load: () => import('./components/pages/LibraryPage'),
+    load: withLayout('library', () => import('./features/documents/DocumentsFeature')),
   },
   {
     path: '/templates',
     access: 'protected',
-    load: () => import('./components/pages/TemplatesPage'),
+    load: withLayout('library', () => import('./features/templates/TemplateLibraryFeature')),
   },
   {
     path: '/template-preview/:templateId',
@@ -100,12 +119,16 @@ export const routeDefinitions: readonly RouteDefinition[] = [
   {
     path: '/shared',
     access: 'protected',
-    load: () => import('./components/pages/SharedPage'),
+    load: withLayout('shared', () => import('./features/workspaces/WorkspacesFeature'), {
+      filter: 'shared',
+    }),
   },
   {
     path: '/shared-documents',
     access: 'protected',
-    load: () => import('./components/pages/SharedDocumentsPage'),
+    load: withLayout('shared-documents', () => import('./features/documents/DocumentsFeature'), {
+      isShared: true,
+    }),
   },
   {
     path: '/review',
@@ -130,12 +153,12 @@ export const routeDefinitions: readonly RouteDefinition[] = [
   {
     path: '/settings',
     access: 'protected',
-    load: () => import('./features/settings/SettingsFeature'),
+    load: withLayout('settings', () => import('./features/settings/SettingsFeature')),
   },
   {
     path: '/documents',
     access: 'protected',
-    load: () => import('./components/pages/DocumentsPage'),
+    load: withLayout('documents', () => import('./features/documents/DocumentsFeature')),
   },
   {
     path: '/documents/new',
@@ -168,5 +191,3 @@ export const routeDefinitions: readonly RouteDefinition[] = [
     load: loadComplianceReview,
   },
 ]
-
-export const routePaths = routeDefinitions.map(({ path }) => path)

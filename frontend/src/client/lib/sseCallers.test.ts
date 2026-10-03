@@ -6,7 +6,6 @@ import { streamWorkspaceChat } from '../store/api/drive/driveWorkspaceApi'
 import {
   cancelTabularGenerate,
   cancelTabularRegenerate,
-  streamTabularChat,
   streamTabularGenerate,
   streamTabularRegenerate,
 } from '../store/api/tabularReviewApi'
@@ -69,13 +68,6 @@ describe('SSE callers', () => {
     (callbacks: Callbacks) =>
       streamTabularGenerate({
         reviewId: 'review-1',
-        onEvent: vi.fn(),
-        ...callbacks,
-      }),
-    (callbacks: Callbacks) =>
-      streamTabularChat({
-        reviewId: 'review-1',
-        messages: [{ role: 'user', content: 'hello' }],
         onEvent: vi.fn(),
         ...callbacks,
       }),
