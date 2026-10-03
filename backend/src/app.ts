@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import cors, { type CorsOptions } from "cors";
 import express, { type Express, type RequestHandler, type Router } from "express";
+import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import type { AppConfig } from "./config.js";
 import type { TemplateEmailInput } from "./lib/email.js";
-import { makeLimiter } from "./shared/rateLimit.js";
 
 type RateLimitPolicy = keyof AppConfig["runtime"]["rateLimits"];
 const rateLimitMessages: Partial<Record<RateLimitPolicy, string>> = {
@@ -160,6 +160,19 @@ export function createCookieOriginGuard(allowedOrigins: ReadonlySet<string>): Re
 
     next();
   };
+}
+
+function makeLimiter(options: { windowMs: number; max: number; message?: string }) {
+  return rateLimit({
+    windowMs: options.windowMs,
+    max: options.max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: (req) => req.method === "OPTIONS" || req.path === "/health",
+    message: {
+      detail: options.message ?? "Too many requests. Please try again later.",
+    },
+  });
 }
 
 export function attachEndpointRateLimits(

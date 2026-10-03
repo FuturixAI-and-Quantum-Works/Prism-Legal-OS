@@ -1,5 +1,4 @@
 import { Resend } from "resend";
-import { MailProviderTimeoutError, withProviderTimeout } from "./providerTimeout.js";
 import type { MailHealth, MailProvider, MailSendRequest, MailSendResult } from "./types.js";
 
 type ResendResponse =
@@ -8,6 +7,18 @@ type ResendResponse =
       data: null;
       error: { message: string; name: string; statusCode: number | null };
     };
+
+class MailProviderTimeoutError extends Error {}
+
+function withProviderTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<never>((_resolve, reject) => {
+    timeout = setTimeout(() => reject(new MailProviderTimeoutError()), timeoutMs);
+  });
+  return Promise.race([promise, expired]).finally(() => {
+    if (timeout) clearTimeout(timeout);
+  });
+}
 
 export type ResendTransport = Readonly<{
   send: (request: MailSendRequest) => Promise<ResendResponse>;

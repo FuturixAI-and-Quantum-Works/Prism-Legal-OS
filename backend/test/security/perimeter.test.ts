@@ -178,6 +178,48 @@ test("attached endpoint limiter blocks requests over its configured limit", asyn
   });
 });
 
+test("perimeter limiters send standard headers, policy messages, and exempt /health", async () => {
+  const config = parseAppConfig(baseEnvironment);
+  const app = express();
+  configureHttpPerimeter(app, {
+    ...config,
+    runtime: {
+      ...config.runtime,
+      rateLimits: {
+        ...config.runtime.rateLimits,
+        general: { windowMs: 15 * 60_000, max: 3 },
+        chat: { windowMs: 15 * 60_000, max: 1 },
+      },
+    },
+  });
+  app.use((_req, res) => res.sendStatus(204));
+
+  await withServer(app, async (baseUrl) => {
+    const allowed = await fetch(`${baseUrl}/documents`);
+    assert.equal(allowed.status, 204);
+    assert.equal(allowed.headers.get("ratelimit-limit"), "3");
+    assert.equal(allowed.headers.get("x-ratelimit-limit"), null);
+
+    const firstChat = await fetch(`${baseUrl}/chat`, { method: "POST" });
+    assert.equal(firstChat.status, 204);
+    const blockedChat = await fetch(`${baseUrl}/chat`, { method: "POST" });
+    assert.equal(blockedChat.status, 429);
+    assert.deepEqual(await blockedChat.json(), {
+      detail: "Too many chat requests. Please try again later.",
+    });
+
+    const blocked = await fetch(`${baseUrl}/documents`);
+    assert.equal(blocked.status, 429);
+    assert.deepEqual(await blocked.json(), {
+      detail: "Too many requests. Please try again later.",
+    });
+
+    const health = await fetch(`${baseUrl}/health`);
+    assert.equal(health.status, 204);
+    assert.equal(health.headers.get("ratelimit-limit"), null);
+  });
+});
+
 test("cookie-authenticated unsafe methods require an exact trusted origin", async () => {
   const app = express();
   app.use(createCookieOriginGuard(new Set(["https://app.example.com"])));
