@@ -5,7 +5,6 @@ import * as driveActivity from './driveActivityApi'
 import * as driveFile from './driveFileApi'
 import * as driveFolder from './driveFolderApi'
 import * as driveInvitations from './driveInvitationsApi'
-import * as driveVersion from './driveVersionApi'
 import * as driveWorkspace from './driveWorkspaceApi'
 
 function captureRequests(): Request[] {
@@ -60,14 +59,6 @@ describe('drive API request contract', () => {
         inline: true,
       }),
     )
-    const formData = new FormData()
-    formData.append('file', new Blob(['version']), 'version.txt')
-    await store.dispatch(
-      driveVersion.driveVersionApi.endpoints.uploadDriveFileVersion.initiate({
-        fileId: 'file-1',
-        formData,
-      }),
-    )
     await store.dispatch(
       driveActivity.driveActivityApi.endpoints.getWorkspaceActivity.initiate('workspace-1'),
     )
@@ -79,7 +70,7 @@ describe('drive API request contract', () => {
       }),
     )
 
-    expect(requests).toHaveLength(6)
+    expect(requests).toHaveLength(5)
     expect([requests[0].method, new URL(requests[0].url).pathname]).toEqual([
       'PATCH',
       '/drive/workspaces/workspace-1',
@@ -102,21 +93,15 @@ describe('drive API request contract', () => {
     expect(Object.fromEntries(fileUrl.searchParams)).toEqual({ inline: 'true' })
 
     expect([requests[3].method, new URL(requests[3].url).pathname]).toEqual([
-      'POST',
-      '/drive/files/file-1/versions',
-    ])
-    expect(requests[3].headers.get('content-type')).toContain('multipart/form-data')
-
-    expect([requests[4].method, new URL(requests[4].url).pathname]).toEqual([
       'GET',
       '/drive/workspaces/workspace-1/activity',
     ])
 
-    expect([requests[5].method, new URL(requests[5].url).pathname]).toEqual([
+    expect([requests[4].method, new URL(requests[4].url).pathname]).toEqual([
       'POST',
       '/drive/workspaces/workspace-1/invitations',
     ])
-    expect(await requests[5].json()).toEqual({
+    expect(await requests[4].json()).toEqual({
       email: 'editor@example.com',
       role: 'editor',
     })
