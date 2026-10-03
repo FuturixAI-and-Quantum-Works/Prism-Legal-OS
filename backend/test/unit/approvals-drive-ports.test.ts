@@ -4,7 +4,13 @@ import {
   ApprovalsRepository,
 } from "../../src/modules/approvals/approvals.repository.js";
 import { ApprovalsService } from "../../src/modules/approvals/approvals.service.js";
+import type { AccessGrant } from "../../src/modules/access/access.types.js";
+import {
+  DriveAuthorizationPolicy,
+  DriveFileAccessPolicy,
+} from "../../src/modules/drive/drive.policy.js";
 import type { DriveFile } from "../../src/modules/drive/drive.types.js";
+import { ownerGrant, stubAccessAuthority } from "./access-test-helpers.js";
 
 const file: DriveFile = {
   id: "file-1",
@@ -80,6 +86,71 @@ function decisionService(email: string) {
     ),
   };
 }
+
+function drivePolicyService(storedFile: DriveFile | null, grant: AccessGrant | null) {
+  const repository: ApprovalsRepository = Object.create(ApprovalsRepository.prototype);
+  vi.spyOn(repository, "listApprovers").mockResolvedValue([]);
+  vi.spyOn(repository, "listRoles").mockResolvedValue([]);
+  const drivePolicy = new DriveAuthorizationPolicy(
+    {
+      workspaces: {
+        findWorkspace: async () => ({
+          id: "workspace-1",
+          ownerId: "owner-1",
+          name: "Workspace",
+          description: null,
+          storageAllocatedBytes: 100n,
+          storageUsedBytes: 0n,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
+      },
+      files: { findFile: async () => storedFile },
+      folders: { findFolder: async () => null },
+    },
+    stubAccessAuthority(() => grant),
+  );
+  return new ApprovalsService(
+    repository,
+    new DriveFileAccessPolicy(drivePolicy),
+    { findFile: vi.fn(async () => storedFile) },
+    {
+      recordFile: vi.fn(async () => undefined),
+      recordWorkspace: vi.fn(async () => undefined),
+    },
+  );
+}
+
+const actor = { userId: "actor-1", email: "actor@example.com" };
+
+describe("ApprovalsService drive access errors", () => {
+  it("reports a workspace viewer editing approvers as a file permission error", async () => {
+    const service = drivePolicyService(file, { ...ownerGrant, role: "viewer", source: "member" });
+
+    await expect(service.upsertApprovers(actor, "drive_file", file.id, [])).rejects.toMatchObject({
+      status: 403,
+      message: "You do not have permission to access this file",
+    });
+  });
+
+  it("reports a file in an unshared workspace as a file permission error", async () => {
+    const service = drivePolicyService(file, null);
+
+    await expect(service.listApprovers(actor, "drive_file", file.id)).rejects.toMatchObject({
+      status: 404,
+      message: "You do not have permission to access this file",
+    });
+  });
+
+  it("reports a missing drive file as not found", async () => {
+    const service = drivePolicyService(null, ownerGrant);
+
+    await expect(service.listApprovers(actor, "drive_file", file.id)).rejects.toMatchObject({
+      status: 404,
+      message: "File not found",
+    });
+  });
+});
 
 describe("ApprovalsService drive ports", () => {
   it("authorizes drive subjects through the injected drive policy", async () => {

@@ -92,6 +92,23 @@ export class DriveAuthorizationPolicy {
   }
 }
 
+export class DriveFileAccessPolicy implements DriveFileAuthorizationPolicy {
+  constructor(private readonly policy: DriveFileAuthorizationPolicy) {}
+
+  async file(...input: Parameters<DriveFileAuthorizationPolicy["file"]>) {
+    try {
+      return await this.policy.file(...input);
+    } catch (error) {
+      if (error instanceof DriveError && error.message !== "File not found") {
+        throw new DriveError(error.status, "You do not have permission to access this file", {
+          cause: error,
+        });
+      }
+      throw error;
+    }
+  }
+}
+
 function permissionMessage(level: DriveAccessLevel): string {
   if (level === "admin") return "Only workspace owners and admins can manage this workspace";
   if (level === "owner") return "Only the workspace owner can perform this action";

@@ -3,14 +3,14 @@ import { verifyDownload } from "../../lib/downloadTokens.js";
 import { buildContentDisposition, downloadFile } from "../../lib/storage.js";
 import { verifyLocalRead } from "../../storage/localSignedRead.js";
 import { accessAuthority } from "../access/access.composition.js";
-import { createProductionDriveAccess } from "../drive/drive.access.js";
+import { createProductionDriveCore } from "../drive/drive.composition.js";
 import { DownloadsAuthorizationPolicy } from "./downloads.policy.js";
 import { DrizzleDownloadsRepository } from "./downloads.repository.js";
 import { createDownloadsRouter } from "./downloads.routes.js";
 import { DownloadsService } from "./downloads.service.js";
 
 const repository = new DrizzleDownloadsRepository();
-const drive = createProductionDriveAccess();
+const drive = createProductionDriveCore();
 const policy = new DownloadsAuthorizationPolicy(
   repository,
   {
