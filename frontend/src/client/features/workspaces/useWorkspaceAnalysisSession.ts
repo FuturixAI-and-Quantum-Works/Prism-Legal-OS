@@ -90,5 +90,3 @@ export function useWorkspaceAnalysisSession(workspaceId: string, items: Workspac
 
   return { data, isLoading, error, run }
 }
-
-export type WorkspaceAnalysisSession = ReturnType<typeof useWorkspaceAnalysisSession>

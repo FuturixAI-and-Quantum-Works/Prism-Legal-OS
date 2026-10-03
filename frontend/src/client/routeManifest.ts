@@ -191,5 +191,3 @@ export const routeDefinitions: readonly RouteDefinition[] = [
     load: loadComplianceReview,
   },
 ]
-
-export const routePaths = routeDefinitions.map(({ path }) => path)

@@ -8,23 +8,7 @@ import {
 import { apiUrl } from '../../lib/apiTransport'
 import { isComplianceRunEvent, type ComplianceRunEvent } from '@prism/protocol'
 
-export type {
-  ActivityEvent,
-  ClauseValidationEvent,
-  ComplianceRunEvent,
-  DoneEvent as ComplianceDoneEvent,
-  ErrorEvent as ComplianceErrorEvent,
-  InsightsResultEvent,
-  InsightsStartEvent,
-  QuestionDeltaEvent,
-  QuestionResultEvent,
-  QuestionStartEvent,
-  RecommendationEvent,
-  RuleDeltaEvent,
-  RuleResultEvent,
-  RuleStartEvent,
-  SummaryEvent,
-} from '@prism/protocol'
+export type { ComplianceRunEvent } from '@prism/protocol'
 
 export type ComplianceReviewStatus = 'pending' | 'running' | 'completed' | 'failed'
 export type ComplianceRuleStatus = 'pending' | 'compliant' | 'non_compliant' | 'partial' | 'error'

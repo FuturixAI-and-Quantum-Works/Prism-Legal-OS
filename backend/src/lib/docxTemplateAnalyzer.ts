@@ -196,7 +196,7 @@ function extractPlaceholderKeys(text: string): string[] {
   return keys;
 }
 
-function humanizeKey(key: string): string {
+function templateFieldLabel(key: string): string {
   const knownAbbreviations = new Set([
     "AGM",
     "CIN",
@@ -230,7 +230,7 @@ function humanizeKey(key: string): string {
     .join(" ");
 }
 
-function inferFieldType(key: string): DocxTemplateFieldType {
+function templateFieldType(key: string): DocxTemplateFieldType {
   if (/EMAIL/i.test(key)) return "email";
   if (/PHONE|MOBILE|TEL/i.test(key)) return "phone";
   if (/ADDRESS/i.test(key)) return "address";
@@ -255,9 +255,9 @@ function fieldsFromKeys(keys: string[]): DocxTemplateField[] {
     seen.add(key);
     fields.push({
       id: key,
-      label: humanizeKey(key),
+      label: templateFieldLabel(key),
       placeholder: `{{${key}}}`,
-      type: inferFieldType(key),
+      type: templateFieldType(key),
       required: true,
       occurrences: counts.get(key) ?? 1,
     });

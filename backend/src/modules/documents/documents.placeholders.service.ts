@@ -255,7 +255,30 @@ export function detectPlaceholderOccurrences(text: string): PlaceholderOccurrenc
   return occurrences.sort((left, right) => left.order - right.order);
 }
 
-function buildPlaceholderEdits(
+export function placeholderFields(
+  occurrences: readonly PlaceholderOccurrence[],
+  values: ReadonlyMap<string, string>,
+): PlaceholderField[] {
+  const fieldsByKey = new Map<string, PlaceholderField>();
+  for (const occurrence of occurrences) {
+    const existing = fieldsByKey.get(occurrence.key);
+    if (existing) {
+      existing.occurrences += 1;
+    } else {
+      fieldsByKey.set(occurrence.key, {
+        key: occurrence.key,
+        label: occurrence.label,
+        type: inferFieldType(`${occurrence.key} ${occurrence.label}`),
+        required: true,
+        occurrences: 1,
+        value: values.get(occurrence.key) ?? null,
+      });
+    }
+  }
+  return [...fieldsByKey.values()];
+}
+
+export function buildPlaceholderEdits(
   occurrences: readonly PlaceholderOccurrence[],
   values: ReadonlyMap<string, string>,
 ) {
@@ -336,29 +359,11 @@ export class DocumentPlaceholdersService {
     if (!raw) throw new DocumentPlaceholdersError(404, "Document bytes not available");
     const text = await extractDocxBodyText(Buffer.from(raw));
     const occurrences = detectPlaceholderOccurrences(text);
-    const values = new Map(
-      (await this.repository.listValues(documentId)).map((row) => [row.fieldKey, row.value]),
-    );
-    const fieldsByKey = new Map<string, PlaceholderField>();
-    for (const occurrence of occurrences) {
-      const existing = fieldsByKey.get(occurrence.key);
-      if (existing) {
-        existing.occurrences += 1;
-      } else {
-        fieldsByKey.set(occurrence.key, {
-          key: occurrence.key,
-          label: occurrence.label,
-          type: inferFieldType(`${occurrence.key} ${occurrence.label}`),
-          required: true,
-          occurrences: 1,
-          value: values.get(occurrence.key) ?? null,
-        });
-      }
-    }
+    const values = await this.repository.valuesByKey(documentId);
     return {
       versionId: active.id,
       versionNumber: active.versionNumber ?? null,
-      fields: [...fieldsByKey.values()],
+      fields: placeholderFields(occurrences, values),
       occurrences,
       values,
     };

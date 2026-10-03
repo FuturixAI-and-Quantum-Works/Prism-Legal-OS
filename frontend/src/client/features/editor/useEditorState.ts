@@ -1,8 +1,19 @@
+import type { Editor } from '@tiptap/core'
 import { useEditor } from '@tiptap/react'
 import { useCallback, useEffect, useMemo, type FocusEvent } from 'react'
 import { sanitizeEditorHtml } from '../../lib/sanitizeHtml'
 import { createEditorExtensions } from './editorExtensions'
-import type { TiptapEditorProps } from './editorTypes'
+
+export interface TiptapEditorProps {
+  content: string
+  onContentChange?: (html: string) => void
+  editable?: boolean
+  placeholder?: string
+  zoom?: number
+  onZoomChange?: (zoom: number) => void
+  onFocusChange?: (focused: boolean) => void
+  onEditorReady?: (editor: Editor | null) => void
+}
 
 type EditorStateOptions = Pick<
   TiptapEditorProps,
