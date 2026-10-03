@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { AppConfig } from "../config.js";
 import { ConsoleMailProvider } from "../mail/consoleMailProvider.js";
 import { createMailProvider } from "../mail/createMailProvider.js";
-import type { MailAttachment, MailProvider, MailSendResult } from "../mail/types.js";
+import type { MailAttachment, MailFailure, MailProvider, MailSendResult } from "../mail/types.js";
 
 export type EmailCategory = "transactional" | "collaboration" | "security";
 
@@ -403,7 +403,7 @@ function senderAddress(): string | undefined {
   return fromEmail ? `${EMAIL_DISPLAY_NAME} <${fromEmail}>` : undefined;
 }
 
-export function deliveryRecord(result: MailSendResult) {
+export function emailEventFields(result: MailSendResult) {
   switch (result.status) {
     case "sent":
       return { resendMessageId: result.messageId ?? null, error: null, suppressed: false };
@@ -412,6 +412,10 @@ export function deliveryRecord(result: MailSendResult) {
     case "failed":
       return { resendMessageId: null, error: result.failure.message, suppressed: false };
   }
+}
+
+export function isRetryable(failure: MailFailure): boolean {
+  return failure.kind === "transient" && failure.retryMode !== "never";
 }
 
 function permanentFailure(message: string): MailSendResult {
@@ -482,12 +486,7 @@ export async function sendTemplateEmailWithRetry(
   const idempotencyKey = input.idempotencyKey ?? randomUUID();
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const result = await sendTemplateEmail({ ...input, idempotencyKey });
-    if (
-      result.status !== "failed" ||
-      result.failure.kind === "permanent" ||
-      result.failure.retryMode === "never" ||
-      attempt === maxAttempts
-    ) {
+    if (result.status !== "failed" || !isRetryable(result.failure) || attempt === maxAttempts) {
       return { ...result, attempts: attempt };
     }
     if (attempt < maxAttempts) {

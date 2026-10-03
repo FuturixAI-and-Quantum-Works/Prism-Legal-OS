@@ -1,7 +1,12 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, documentEmailEvents } from "../db/index.js";
-import { deliveryRecord, sendTemplateEmail, type TemplateEmailInput } from "../lib/email.js";
+import {
+  emailEventFields,
+  isRetryable,
+  sendTemplateEmail,
+  type TemplateEmailInput,
+} from "../lib/email.js";
 import { cleanupOldHealthChecks, runAllHealthChecks } from "../lib/healthCheck.js";
 import type { MailSendResult } from "../mail/types.js";
 import { indexRetrievalSource } from "../modules/retrieval/retrieval.indexing.js";
@@ -144,11 +149,10 @@ async function recordTrackedEmail(
 ): Promise<void> {
   const terminal =
     result.status !== "failed" ||
-    result.failure.kind === "permanent" ||
-    result.failure.retryMode === "never" ||
+    !isRetryable(result.failure) ||
     claim.attemptNumber >= claim.maxAttempts;
   if (!terminal) return;
-  const { suppressed, ...record } = deliveryRecord(result);
+  const { suppressed, ...record } = emailEventFields(result);
   await db
     .update(documentEmailEvents)
     .set({
@@ -176,7 +180,7 @@ async function handleEmail(claim: ClaimedOutboxEvent, signal: AbortSignal): Prom
   const result = await sendTemplateEmail(input);
   if (payload.tracking) await recordTrackedEmail(payload.tracking, claim, result);
   if (result.status !== "failed") return { kind: "succeeded" };
-  return result.failure.kind === "transient" && result.failure.retryMode !== "never"
+  return isRetryable(result.failure)
     ? { kind: "retry", error: result.failure.message }
     : { kind: "failed", error: result.failure.message };
 }

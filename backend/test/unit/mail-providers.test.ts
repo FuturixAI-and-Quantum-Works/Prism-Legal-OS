@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   configureEmail,
-  deliveryRecord,
+  emailEventFields,
   sendRawEmail,
   sendTemplateEmail,
   sendTemplateEmailWithRetry,
@@ -175,7 +175,7 @@ describe("email attachments", () => {
   });
 });
 
-describe("email delivery records", () => {
+describe("email event fields", () => {
   it.each([
     [
       { status: "sent", messageId: "resend-1" },
@@ -194,7 +194,7 @@ describe("email delivery records", () => {
       { resendMessageId: null, error: "busy", suppressed: false },
     ],
   ] as const)("records %o", (result, expected) => {
-    expect(deliveryRecord(result)).toEqual(expected);
+    expect(emailEventFields(result)).toEqual(expected);
   });
 });
 

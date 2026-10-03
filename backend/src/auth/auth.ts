@@ -12,7 +12,7 @@ import {
   verifications,
 } from "../db/index.js";
 import type { Database } from "../db/index.js";
-import { deliveryRecord, type SendWithRetryResult } from "../lib/email.js";
+import { emailEventFields, type SendWithRetryResult } from "../lib/email.js";
 import { createOtpDeliveryCallback } from "./otpDelivery.js";
 
 export type AuthDependencies = Readonly<{
@@ -24,7 +24,7 @@ export function createAuth(config: AppConfig, dependencies: AuthDependencies) {
   const sendVerificationOTP = createOtpDeliveryCallback(
     dependencies.sendOtpEmail,
     async (delivery, result) => {
-      const { suppressed, ...record } = deliveryRecord(result);
+      const { suppressed, ...record } = emailEventFields(result);
       await dependencies.database.insert(authEmailEvents).values({
         recipient: delivery.email.toLowerCase(),
         template: "otp",
