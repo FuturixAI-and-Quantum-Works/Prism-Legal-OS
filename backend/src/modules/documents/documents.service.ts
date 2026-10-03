@@ -251,7 +251,7 @@ export class DocumentsService {
     } else {
       const documentIds = [
         ...(
-          await accessAuthority.listDocumentGrants({
+          await accessAuthority.grants.listDocumentGrants({
             userId: actor.userId,
             email: actor.userEmail?.toLowerCase() ?? "",
           })

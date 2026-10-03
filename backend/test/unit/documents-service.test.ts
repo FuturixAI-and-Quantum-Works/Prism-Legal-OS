@@ -33,8 +33,9 @@ const access = vi.hoisted(() => ({
       documentLifecycle: "DRAFT",
     },
   })),
-  isGlobalAdmin: vi.fn(async () => false),
-  listDocumentGrants: vi.fn(async () => new Map()),
+  grants: {
+    listDocumentGrants: vi.fn(async () => new Map()),
+  },
 }));
 const permissions = vi.hoisted(() => ({
   assertDocumentActionAllowed: vi.fn(async () => undefined),

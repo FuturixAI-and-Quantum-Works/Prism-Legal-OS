@@ -42,7 +42,7 @@ export class ProjectsService {
   }
 
   async list(actor: ProjectActor) {
-    const grants = await this.authority.listProjectGrants(actor);
+    const grants = await this.authority.grants.listProjectGrants(actor);
     return (await this.repository.listProjects(actor, grants)).map(projectListItemDto);
   }
 

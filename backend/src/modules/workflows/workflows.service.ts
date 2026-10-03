@@ -33,7 +33,7 @@ export class WorkflowsService {
   ) {}
 
   async list(actor: WorkflowActor, type?: WorkflowType) {
-    const grants = await this.authority.listWorkflowGrants(actor);
+    const grants = await this.authority.grants.listWorkflowGrants(actor);
     const workflows = await this.repository.listAccessible([...grants.keys()], actor.email, type);
     return workflows.map(({ workflow, sharedByName }) => {
       const grant = grants.get(workflow.id);

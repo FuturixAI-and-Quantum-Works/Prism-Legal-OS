@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { DOCX_TEMPLATE_MIME, fillDocxTemplate } from "../../lib/docxTemplateAnalyzer.js";
+import type { AccessAuthority } from "../access/access.authority.js";
 import type { DocumentDto } from "../documents/documents.models.js";
 import type { TemplatesAuthorizationPolicy } from "./templates.policy.js";
 import type { TemplatesRepository } from "./templates.repository.js";
@@ -76,12 +77,16 @@ export class TemplatesService {
   constructor(
     private readonly repository: TemplatesRepository,
     private readonly policy: TemplatesAuthorizationPolicy,
+    private readonly authority: AccessAuthority,
     private readonly storage: TemplateStorageCoordinator,
     private readonly documents: DocumentCreator,
   ) {}
 
   async list(actor: TemplateActor, type: TemplateListType): Promise<readonly Template[]> {
-    const grants = await this.policy.listGrants(actor.userId);
+    const grants = await this.authority.grants.listTemplateGrants({
+      userId: actor.userId,
+      email: "",
+    });
     return this.repository.list([...grants.keys()], type);
   }
 

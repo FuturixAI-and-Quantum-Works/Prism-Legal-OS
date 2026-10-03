@@ -41,8 +41,8 @@ export async function accessibleRetrievalScopes(actor: RetrievalActor) {
     email: actor.userEmail?.toLowerCase() ?? "",
   };
   const [projectGrants, workspaceGrants] = await Promise.all([
-    accessAuthority.listProjectGrants(accessActor),
-    accessAuthority.listWorkspaceGrants(accessActor),
+    accessAuthority.grants.listProjectGrants(accessActor),
+    accessAuthority.grants.listWorkspaceGrants(accessActor),
   ]);
   return {
     projectIds: [...projectGrants.keys()],

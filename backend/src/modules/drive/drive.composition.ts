@@ -146,6 +146,7 @@ function createProductionDriveServices(objectStore: ObjectStore): DriveServices 
     workspaces: new DriveWorkspacesService(
       workspaces,
       policy,
+      accessAuthority,
       activity,
       objectStore,
       storageOperations,

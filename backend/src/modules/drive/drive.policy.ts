@@ -28,10 +28,6 @@ export class DriveAuthorizationPolicy {
     private readonly authority: AccessAuthority,
   ) {}
 
-  listWorkspaceGrants(actor: DriveActor) {
-    return this.authority.listWorkspaceGrants({ userId: actor.userId, email: "" });
-  }
-
   async workspace(
     actor: DriveActor,
     workspaceId: string,

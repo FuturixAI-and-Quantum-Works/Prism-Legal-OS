@@ -100,7 +100,7 @@ export class DocumentPermissionsService {
     if (!document) throw new DocumentPermissionError(404, "Document not found");
     const user = await this.repository.findSessionUser(userId);
     const email = (userEmail || user?.email || "").toLowerCase();
-    const access = await accessAuthority.findGrant(
+    const access = await accessAuthority.grants.findGrant(
       { userId, email },
       { kind: "document", id: documentId },
     );

@@ -7,7 +7,8 @@ import {
   type DriveWorkspace,
   type WorkspaceRole,
 } from "../../src/modules/drive/drive.types.js";
-import { stubAccessAuthority } from "./access-test-helpers.js";
+import { DriveWorkspacesService } from "../../src/modules/drive/drive.workspaces.service.js";
+import { ownerGrant, stubAccessAuthority } from "./access-test-helpers.js";
 
 const workspace: DriveWorkspace = {
   id: "workspace-1",
@@ -91,6 +92,28 @@ describe("DriveAuthorizationPolicy", () => {
     await expect(instance.file({ userId: "actor-1" }, file.id, "read")).rejects.toMatchObject({
       status: 404,
     });
+  });
+});
+
+describe("DriveWorkspacesService.list", () => {
+  it("lists the workspaces the actor holds grants for", async () => {
+    const grants = new Map([[workspace.id, ownerGrant]]);
+    const listWorkspaceGrants = vi.fn(async () => grants);
+    const listWorkspaces = vi.fn(async () => []);
+    const service = new DriveWorkspacesService(
+      { listWorkspaces } as never,
+      {} as never,
+      stubAccessAuthority(undefined, { listWorkspaceGrants }),
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+
+    await service.list({ userId: "actor-1" });
+
+    expect(listWorkspaceGrants).toHaveBeenCalledWith({ userId: "actor-1", email: "" });
+    expect(listWorkspaces).toHaveBeenCalledWith(grants);
   });
 });
 

@@ -1,5 +1,5 @@
 import { AccessAuthority } from "../../src/modules/access/access.authority.js";
-import type { AccessRepository } from "../../src/modules/access/access.repository.js";
+import type { AccessGrantReader } from "../../src/modules/access/access.repository.js";
 import type {
   AccessActor,
   AccessGrant,
@@ -16,8 +16,9 @@ export const ownerGrant: AccessGrant = {
 export function stubAccessAuthority(
   findGrant: (actor: AccessActor, resource: AccessResource) => AccessGrant | null = () =>
     ownerGrant,
+  grants: Partial<AccessGrantReader> = {},
 ): AccessAuthority {
-  const repository: AccessRepository = {
+  const repository: AccessGrantReader = {
     isGlobalAdmin: async () => false,
     findGrant: async (actor, resource) => findGrant(actor, resource),
     listProjectGrants: async () => new Map(),
@@ -26,6 +27,7 @@ export function stubAccessAuthority(
     listTabularReviewGrants: async () => new Map(),
     listWorkflowGrants: async () => new Map(),
     listTemplateGrants: async () => new Map(),
+    ...grants,
   };
   return new AccessAuthority(repository);
 }

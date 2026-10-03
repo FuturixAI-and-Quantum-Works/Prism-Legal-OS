@@ -87,7 +87,7 @@ export function createProductionDependencies(
       { path: "/attention-items", router: attentionRouter },
       { path: "/notifications", router: notificationsRouter },
     ],
-    isAdmin: (userId) => accessAuthority.isGlobalAdmin(userId),
+    isAdmin: (userId) => accessAuthority.grants.isGlobalAdmin(userId),
     enqueueEmailTest: (email, idempotencyKey, actorUserId) =>
       enqueueTemplateEmail({
         email,

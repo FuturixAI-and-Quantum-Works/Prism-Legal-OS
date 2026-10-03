@@ -3,7 +3,7 @@ import { DocumentGovernanceRepository } from "../../src/modules/documents/docume
 import { DocumentPermissionsService } from "../../src/modules/documents/documents.permissions.service.js";
 
 const authority = vi.hoisted(() => ({
-  findGrant: vi.fn(),
+  grants: { findGrant: vi.fn() },
   decide: vi.fn(),
 }));
 
@@ -44,7 +44,7 @@ function service(): DocumentPermissionsService {
 describe("DocumentPermissionsService denial mapping", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    authority.findGrant.mockResolvedValue(editorGrant);
+    authority.grants.findGrant.mockResolvedValue(editorGrant);
   });
 
   it("conceals owner-only document metadata updates", async () => {

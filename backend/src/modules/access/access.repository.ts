@@ -30,7 +30,7 @@ import type {
   DocumentRole,
 } from "./access.types.js";
 
-export interface AccessRepository {
+export interface AccessGrantReader {
   isGlobalAdmin(userId: string): Promise<boolean>;
   findGrant(actor: AccessActor, resource: AccessResource): Promise<AccessGrant | null>;
   listProjectGrants(actor: AccessActor): Promise<ReadonlyMap<string, AccessGrant>>;
@@ -74,7 +74,7 @@ function documentMemberRole(role: DocumentRole): AccessRole {
   return role === "DRAFTER" ? "editor" : "viewer";
 }
 
-export class DrizzleAccessRepository implements AccessRepository {
+export class DrizzleAccessRepository implements AccessGrantReader {
   constructor(private readonly database: Database = db) {}
 
   async findGrant(actor: AccessActor, resource: AccessResource): Promise<AccessGrant | null> {

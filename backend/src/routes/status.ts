@@ -102,7 +102,7 @@ statusRouter.get("/history", async (req, res) => {
 statusRouter.post("/check", requireAuth, async (_req, res) => {
   const userId = res.locals.auth.user.id;
 
-  if (!(await accessAuthority.isGlobalAdmin(userId))) {
+  if (!(await accessAuthority.grants.isGlobalAdmin(userId))) {
     return void res.status(403).json({ detail: "Admin access required" });
   }
 
