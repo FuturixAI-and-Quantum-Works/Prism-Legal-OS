@@ -207,4 +207,26 @@ describe("workflow policies and services", () => {
     expect(repository.findSampleDocument).toHaveBeenCalledOnce();
     expect(ai.complete).toHaveBeenCalledOnce();
   });
+
+  it("hides a rulebook sample document the actor cannot read", async () => {
+    const repository = { findSampleDocument: vi.fn() };
+    const ai = { complete: vi.fn() };
+    const service = new RulebookDraftService(
+      repository,
+      new RulebookAuthorizationPolicy(async () => []),
+      { extract: vi.fn(), read: vi.fn() },
+      ai,
+    );
+
+    await expect(
+      service.generate(actor, {
+        documentType: "Credit agreement",
+        sampleDocumentId: "document-1",
+        extraRequirements: "",
+        count: 12,
+      }),
+    ).rejects.toEqual(new WorkflowError(404, "Sample document not found"));
+    expect(repository.findSampleDocument).not.toHaveBeenCalled();
+    expect(ai.complete).not.toHaveBeenCalled();
+  });
 });
