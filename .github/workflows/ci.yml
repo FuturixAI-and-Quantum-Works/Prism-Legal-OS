@@ -119,6 +119,8 @@ jobs:
   compose-config:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      RESEND_API_KEY: ci-placeholder
     outputs:
       docker-available: ${{ steps.docker.outputs.available }}
     steps:
@@ -147,6 +149,7 @@ jobs:
     timeout-minutes: 10
     env:
       COMPOSE_PROJECT_NAME: prism-ci-${{ github.run_id }}-${{ github.run_attempt }}
+      RESEND_API_KEY: ci-placeholder
     steps:
       - uses: actions/checkout@v4
         with:
@@ -180,10 +183,10 @@ jobs:
           '
       - run: docker compose -f compose.yaml up --detach --wait
       - run: |
-          expected="$(docker compose -f compose.yaml config --services | sort)"
+          expected="$(docker compose -f compose.yaml config --services | grep -vx minio-init | sort)"
           running="$(docker compose -f compose.yaml ps --services --status running | sort)"
           test "$running" = "$expected"
-          for service in postgres mailpit backend worker frontend; do
+          for service in postgres minio backend worker frontend; do
             container_id="$(docker compose -f compose.yaml ps -q "$service")"
             test -n "$container_id"
             test "$(docker inspect "$container_id" --format '{{.State.Health.Status}}')" = healthy
