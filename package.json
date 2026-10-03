@@ -15,14 +15,15 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "audit:production": "npm audit --omit=dev",
-    "check:auth-locals": "node scripts/migrate-backend-auth-locals.mjs --check",
+    "check:auth-locals": "node scripts/check-backend-auth-locals.mjs",
     "check:docs": "node scripts/check-docs.mjs",
     "check:license": "node scripts/check-license-consistency.mjs",
-    "check:orphans": "knip",
+    "check:orphans": "knip --no-config-hints",
+    "check:production-exports": "knip --production",
     "check:publication": "node scripts/check-publication.mjs",
     "ci": "npm run ci:quality && npm run check:docs && npm run ci:test-build && npm run test:e2e:mocked",
     "ci:postgres": "npm run build --workspace @prism/protocol && npm run build --workspace @prism/backend && tsx --test --test-concurrency=1 backend/test/integration/postgres-publication.test.ts",
-    "ci:quality": "npm run check:publication && npm run check:license && npm run check:auth-locals && npm run check:orphans && npm run db:verify && npm run seed:validate && npm run format:check && npm run lint && npm run typecheck",
+    "ci:quality": "npm run check:publication && npm run check:license && npm run check:auth-locals && npm run check:orphans && npm run check:production-exports && npm run db:verify && npm run seed:validate && npm run format:check && npm run lint && npm run typecheck",
     "ci:test-build": "npm run test && npm run audit:production && npm run build",
     "db:verify": "npm run db:verify --workspace @prism/backend",
     "dev": "concurrently --names \"backend,worker,frontend\" --prefix-colors \"cyan,yellow,magenta\" \"npm run dev --workspace @prism/backend\" \"npm run dev:worker --workspace @prism/backend\" \"npm run dev --workspace @prism/frontend\"",
@@ -74,6 +75,9 @@
     "vitest": "^4.1.11"
   },
   "overrides": {
+    "@qdrant/js-client-rest": {
+      "undici": "7.30.0"
+    },
     "esbuild": "0.25.12",
     "qs": "6.16.0"
   }

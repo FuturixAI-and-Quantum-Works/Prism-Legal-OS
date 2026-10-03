@@ -25,10 +25,6 @@ vi.mock('../Layout', () => ({
   default: ({ children }: { children: ReactNode }) => <main>{children}</main>,
 }))
 
-vi.mock('../../features/projects/ProjectPrimitives', () => ({
-  FolderIcon: () => <span aria-hidden="true">folder</span>,
-}))
-
 vi.mock('../../features/files/BrowseFilesDialog', () => ({
   default: () => null,
 }))

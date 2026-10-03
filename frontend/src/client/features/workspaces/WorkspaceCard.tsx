@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import calendarIcon from '../../assets/calendar-icon.svg'
 import pencilEditIcon from '../../assets/pencil-edit-icon.svg'
 import profileUsersIcon from '../../assets/profile-users-icon.svg'
-import projectFolderIcon from '../../assets/project-folder-icon.svg'
 import projectOpenIcon from '../../assets/project-open-icon.svg'
 import shareIcon from '../../assets/share-icon.svg'
 import trashIcon from '../../assets/trash-icon.svg'
 import { useMenuFocus } from '../../hooks/useMenuFocus'
+import { ProjectIcon } from '../../components/icons'
 import { Button, IconButton } from '../../components/ui/Button'
 import type { WorkspaceListAction } from './useWorkspaceListSession'
 import { workspaceFont, type WorkspaceCardModel } from './workspaceModels'
@@ -355,11 +355,7 @@ export function WorkspaceCard({
                 zIndex: 2,
               }}
             >
-              {isHovered || dropdownOpen ? (
-                <EllipsisIcon />
-              ) : (
-                <img src={projectFolderIcon} alt="" style={{ width: '20px', height: '20px' }} />
-              )}
+              {isHovered || dropdownOpen ? <EllipsisIcon /> : <ProjectIcon size={20} alt="" />}
             </IconButton>
             <span
               style={{

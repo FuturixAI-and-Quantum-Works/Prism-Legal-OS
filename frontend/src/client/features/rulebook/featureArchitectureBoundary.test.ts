@@ -48,7 +48,6 @@ const featureFiles = [
   'features/documents/documentActionOptions.ts',
   'features/documents/DocumentDialogs.tsx',
   'features/documents/DocumentShareDialog.tsx',
-  'features/projects/ProjectPrimitives.tsx',
   'features/dashboard/dashboardModel.ts',
   'features/dashboard/useDashboard.ts',
   'features/dashboard/DashboardFeature.tsx',

@@ -63,7 +63,7 @@ test("document editor loads, saves, versions, comments, and renders chat tools",
 
   expect(
     loadedScripts.filter((path) =>
-      /(?:WorkspaceDetailPage|ReviewPage|CompliancePage|DocsCompliancePage)-/.test(path),
+      /(?:WorkspaceDetailView|ReviewPage|CompliancePage|DocsCompliancePage)-/.test(path),
     ),
   ).toEqual([]);
   await expectNoModerateOrWorseAxeViolations(page);

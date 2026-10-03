@@ -1,6 +1,4 @@
 import type { DocReadFailedEvent, StreamEventWriter } from "@prism/protocol";
-import { eq } from "drizzle-orm";
-import { db, documentPlaceholderValues } from "../../../db/index.js";
 import { extractDocxBodyText } from "../../../lib/docxTrackedChangesXml.js";
 import { loadActiveVersion } from "../../../lib/documentVersions.js";
 import { downloadFile } from "../../../lib/storage.js";
@@ -314,86 +312,6 @@ export async function findInDocumentContent(params: {
     truncated: totalMatches > hits.length,
     hits,
   });
-}
-
-export function humanizeKey(key: string): string {
-  return key
-    .replace(/[_-]+/g, " ")
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/\b\w/g, (character) => character.toUpperCase());
-}
-
-export function inferFieldType(key: string): "text" | "textarea" | "date" | "number" {
-  if (/date$/i.test(key) || /Date/i.test(key)) return "date";
-  if (/address|description|purpose|premises|terms/i.test(key)) return "textarea";
-  if (/rent|deposit|salary|rate|value|amount|price|fee|period|contribution|percentage/i.test(key)) {
-    return "number";
-  }
-  return "text";
-}
-
-export function extractPlaceholderCounts(text: string): Map<string, number> {
-  const counts = new Map<string, number>();
-  const regex = /\{\{\s*([^{}\r\n]+?)\s*\}\}/g;
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(text)) !== null) {
-    const key = match[1]?.trim();
-    if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-  return counts;
-}
-
-export async function getSavedPlaceholderValues(documentId: string): Promise<Map<string, string>> {
-  const rows = await db
-    .select({
-      fieldKey: documentPlaceholderValues.fieldKey,
-      value: documentPlaceholderValues.value,
-    })
-    .from(documentPlaceholderValues)
-    .where(eq(documentPlaceholderValues.documentId, documentId));
-  return new Map(rows.map((row) => [row.fieldKey, row.value]));
-}
-
-export function buildPlaceholderEdits(
-  text: string,
-  values: Map<string, string>,
-): {
-  find: string;
-  replace: string;
-  context_before: string;
-  context_after: string;
-  reason: string;
-}[] {
-  const edits: {
-    find: string;
-    replace: string;
-    context_before: string;
-    context_after: string;
-    reason: string;
-  }[] = [];
-  const regex = /\{\{\s*([A-Za-z][A-Za-z0-9_]*)\s*\}\}/g;
-  for (const paragraph of text.split(/\r?\n/)) {
-    regex.lastIndex = 0;
-    let match: RegExpExecArray | null;
-    while ((match = regex.exec(paragraph)) !== null) {
-      const key = match[1];
-      const value = values.get(key);
-      if (value == null || !value.trim()) continue;
-      edits.push({
-        find: match[0],
-        replace: value,
-        context_before: paragraph.slice(Math.max(0, match.index - 80), match.index),
-        context_after: paragraph.slice(
-          match.index + match[0].length,
-          match.index + match[0].length + 80,
-        ),
-        reason: `Fill ${humanizeKey(key)}`,
-      });
-    }
-  }
-  return edits;
 }
 
 export type DiffChange = {

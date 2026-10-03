@@ -54,20 +54,6 @@ export type ProjectListItem = Project &
     collaborators: readonly ProjectCollaborator[];
   }>;
 
-export type ProjectDetails = Project &
-  Readonly<{
-    is_owner: boolean;
-    role: ProjectRole;
-    folders: readonly ProjectFolder[];
-  }>;
-
-export type ProjectOwnerDto = Readonly<{
-  user_id: string;
-  email: string | null;
-  full_name: string | null;
-  role: "owner";
-}>;
-
 export type ProjectMemberDto = Readonly<{
   id: string;
   project_id: string;
@@ -85,12 +71,6 @@ export type PendingProjectInvitationDto = Readonly<{
   status: string;
   expires_at: Date;
   created_at: Date;
-}>;
-
-export type ProjectMembersDto = Readonly<{
-  owner: ProjectOwnerDto;
-  members: readonly ProjectMemberDto[];
-  pending_invitations: readonly PendingProjectInvitationDto[];
 }>;
 
 export type ProjectPeopleDto = Readonly<{

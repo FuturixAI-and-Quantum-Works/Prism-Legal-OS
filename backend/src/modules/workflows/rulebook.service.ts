@@ -1,5 +1,4 @@
 import type { ContentTextService } from "../content/contentText.service.js";
-import type { RulebookAuthorizationPolicy } from "./rulebook.policy.js";
 import type { RulebookRepository } from "./rulebook.repository.js";
 import { WorkflowError, type WorkflowActor } from "./workflows.types.js";
 
@@ -34,6 +33,10 @@ export type GenerateRulebookInput = Readonly<{
   sampleDocumentId?: string;
   extraRequirements: string;
   count: number;
+}>;
+
+type RulebookDocumentAccess = Readonly<{
+  canReadDocument: (documentId: string, actor: WorkflowActor) => Promise<boolean>;
 }>;
 
 type RulebookAi = Readonly<{
@@ -153,7 +156,7 @@ function columns(faqs: readonly GeneratedFaq[]) {
 export class RulebookDraftService {
   constructor(
     private readonly repository: RulebookRepository,
-    private readonly policy: RulebookAuthorizationPolicy,
+    private readonly documents: RulebookDocumentAccess,
     private readonly content: ContentTextService,
     private readonly ai: RulebookAi,
   ) {}
@@ -193,8 +196,9 @@ Generate reusable compliance questions for a tabular legal review of this docume
   }
 
   private async loadSample(actor: WorkflowActor, documentId: string) {
-    await this.policy.requireSampleAccess(documentId, actor);
-    const document = await this.repository.findSampleDocument(documentId);
+    const document = (await this.documents.canReadDocument(documentId, actor))
+      ? await this.repository.findSampleDocument(documentId)
+      : null;
     if (!document) throw new WorkflowError(404, "Sample document not found");
     const extracted = await this.content.extract({
       kind: "document",

@@ -8,13 +8,10 @@ import { WorkspaceMemberDialogs } from './WorkspaceMemberDialogs'
 import { WorkspacePanel } from './WorkspacePanel'
 import { WorkspaceSidebar } from './WorkspaceSidebar'
 import { workspaceFont } from './workspaceModels'
-import type { WorkspaceDetailSession } from './useWorkspaceDetailSession'
+import { useWorkspaceDetailSession } from './useWorkspaceDetailSession'
 
-interface WorkspaceDetailViewProps {
-  session: WorkspaceDetailSession
-}
-
-export function WorkspaceDetailView({ session }: WorkspaceDetailViewProps) {
+export default function WorkspaceDetailView() {
+  const session = useWorkspaceDetailSession()
   const rightPadding = session.ai.collapsed ? '64px' : `${session.ai.width + 16}px`
   return (
     <Layout activePage="projects" breadcrumbs={session.breadcrumbs}>

@@ -5,10 +5,6 @@ export type TurnEditState = Map<
   { versionId: string; versionNumber: number; storagePath: string }
 >;
 
-export function createTurnEditState(): TurnEditState {
-  return new Map();
-}
-
 export function registerCreatedDocumentInTurn(
   docIndex: DocIndex | undefined,
   docStore: DocStore,

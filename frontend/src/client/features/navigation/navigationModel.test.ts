@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { routePaths } from '../../routeManifest'
+import { routeDefinitions } from '../../routeManifest'
 import {
   getDefaultBreadcrumb,
   intelligenceNavigationItems,
@@ -39,7 +39,7 @@ describe('navigation model', () => {
 
     expect(
       [...new Set([...sidebarPaths, ...breadcrumbPaths])].filter(
-        (path) => !routePaths.includes(path),
+        (path) => !routeDefinitions.some((route) => route.path === path),
       ),
     ).toEqual([])
   })

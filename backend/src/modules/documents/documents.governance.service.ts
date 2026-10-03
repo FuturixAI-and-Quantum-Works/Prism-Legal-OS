@@ -1,4 +1,5 @@
 import { accessAuthority } from "../access/access.composition.js";
+import type { DocumentRole } from "../access/access.types.js";
 import {
   assertDocumentActionAllowed,
   loadDocumentSessionContext,
@@ -8,7 +9,6 @@ import { sharingService } from "../sharing/sharing.service.js";
 import type { RequestUserContext } from "./documents.models.js";
 import { documentActivityService, recordDocumentActivity } from "./documents.activity.service.js";
 import { documentLifecycleService } from "./documents.lifecycle.service.js";
-import { documentMembersService } from "./documents.members.service.js";
 import {
   notifyDocumentRole,
   recordAndSendDocumentEmail,
@@ -50,6 +50,12 @@ export type CreateCommentInput = Readonly<{
 export type UpdateCommentInput = Readonly<{
   body: DeferredValue<string> | null;
   resolved: boolean | null;
+}>;
+
+type AssignMemberInput = Readonly<{
+  email: string | null;
+  targetUserId: string | null;
+  role: DocumentRole;
 }>;
 
 function sessionDto(context: Awaited<ReturnType<typeof loadDocumentSessionContext>>) {
@@ -139,29 +145,74 @@ export class DocumentGovernanceService {
     );
   }
 
-  listMembers(actor: RequestUserContext, documentId: string) {
-    return documentMembersService.list(documentId, actor.userId, actor.userEmail ?? undefined);
+  async listMembers(actor: RequestUserContext, documentId: string) {
+    await assertDocumentActionAllowed(
+      documentId,
+      actor.userId,
+      actor.userEmail ?? undefined,
+      "assign_document_role",
+    );
+    return this.repository.listMembers(documentId);
   }
 
-  assignMember(
+  async assignMember(actor: RequestUserContext, documentId: string, input: AssignMemberInput) {
+    await assertDocumentActionAllowed(
+      documentId,
+      actor.userId,
+      actor.userEmail ?? undefined,
+      "assign_document_role",
+    );
+    const email = input.email?.trim().toLowerCase() || null;
+    const targetUserId = input.targetUserId?.trim() || null;
+    if (!email && !targetUserId) {
+      throw new DocumentGovernanceError(400, "email or user_id is required");
+    }
+    const member = await this.repository.assignMember({
+      documentId,
+      assignedByUserId: actor.userId,
+      email,
+      targetUserId,
+      role: input.role,
+    });
+    await recordDocumentActivity(
+      documentId,
+      actor.userId,
+      "document_role_assigned",
+      { type: "member", id: member.id },
+      { role: input.role, email, user_id: targetUserId },
+    );
+    if (email) {
+      await recordAndSendDocumentEmail(
+        documentId,
+        email,
+        "role-assignment",
+        "role_assignment",
+        "Document role assigned",
+        `You have been assigned ${input.role} access. Open the document from your workspace.`,
+      );
+    }
+    return member;
+  }
+
+  async revokeMember(
     actor: RequestUserContext,
     documentId: string,
-    input: Parameters<typeof documentMembersService.assign>[3],
-  ) {
-    return documentMembersService.assign(
+    memberId: string,
+  ): Promise<void> {
+    await assertDocumentActionAllowed(
       documentId,
       actor.userId,
       actor.userEmail ?? undefined,
-      input,
+      "assign_document_role",
     );
-  }
-
-  revokeMember(actor: RequestUserContext, documentId: string, memberId: string) {
-    return documentMembersService.revoke(
+    const member = await this.repository.revokeMember(documentId, memberId);
+    if (!member) throw new DocumentGovernanceError(404, "Document member not found");
+    await recordDocumentActivity(
       documentId,
       actor.userId,
-      actor.userEmail ?? undefined,
-      memberId,
+      "document_role_revoked",
+      { type: "member", id: member.id },
+      { role: member.role, email: member.email },
     );
   }
 

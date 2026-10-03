@@ -128,9 +128,9 @@ test("authentication has no bearer, query-token, local-storage, or JWT path", as
 });
 
 test("authenticated backend routes use only the typed Better Auth context", async () => {
-  const script = resolve(testDirectory, "../../../scripts/migrate-backend-auth-locals.mjs");
+  const script = resolve(testDirectory, "../../../scripts/check-backend-auth-locals.mjs");
   const middleware = await readFile(resolve(testDirectory, "../../src/middleware/auth.ts"), "utf8");
-  const { stdout } = await execFileAsync(process.execPath, [script, "--check"]);
+  const { stdout } = await execFileAsync(process.execPath, [script]);
   const localsDeclaration = /interface Locals\s*\{(?<body>[^}]*)\}/.exec(middleware);
 
   assert.match(stdout, /No legacy auth-local references found/);

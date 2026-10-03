@@ -9,30 +9,32 @@ const delivery: OtpDelivery = {
 };
 
 test("OTP delivery records success without exposing provider details", async () => {
-  const recorded: Array<{ delivery: OtpDelivery; success: boolean }> = [];
+  const recorded: Array<{ delivery: OtpDelivery; status: string }> = [];
   const callback = createOtpDeliveryCallback(
     async () => ({
-      success: true,
       status: "sent",
       messageId: "provider-message-id",
       attempts: 1,
     }),
     async (input, result) => {
-      recorded.push({ delivery: input, success: result.success });
+      recorded.push({ delivery: input, status: result.status });
     },
   );
 
   assert.equal(await callback(delivery), undefined);
-  assert.deepEqual(recorded, [{ delivery, success: true }]);
+  assert.deepEqual(recorded, [{ delivery, status: "sent" }]);
 });
 
 test("OTP delivery records failure and rejects authentication delivery", async () => {
   let recorded = false;
   const callback = createOtpDeliveryCallback(
     async () => ({
-      success: false,
       status: "failed",
-      error: "provider unavailable",
+      failure: {
+        kind: "transient",
+        retryMode: "provider-idempotent",
+        message: "provider unavailable",
+      },
       attempts: 3,
     }),
     async () => {
